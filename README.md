@@ -30,7 +30,7 @@ Then, after a piece of work, ask your agent to **"score this session with Aura."
 
 ## What it measures
 
-A referenceless read of your **process** — no rubric, no test cases — across dimensions like prompting effectiveness, AI collaboration/steering, problem decomposition, and human contribution vs. AI reliance, plus a session archetype, insight cards, and measured telemetry (tokens, tools, "ships-it" lifecycle). Tools exposed: `score_this_session`, `import_history`, `get_my_profile`, `whoami`, `compare_me`.
+A referenceless read of your **process** — no rubric, no test cases — across dimensions like prompting effectiveness, AI collaboration/steering, problem decomposition, and human contribution vs. AI reliance, plus a session archetype, insight cards, and measured telemetry (tokens, tools, "ships-it" lifecycle). Tools exposed: `score_this_session`, `import_history`, `get_my_profile`, `whoami`.
 
 ## Privacy
 
