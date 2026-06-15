@@ -1,0 +1,442 @@
+{
+  "models": {
+    "gpt-4.1": {
+      "display_name": "GPT-4.1",
+      "description": "Most capable GPT-4.1 model for complex tasks",
+      "category": "openai",
+      "provider": "openai",
+      "enabled": true,
+      "settings": {
+        "temperature": 0.7,
+        "max_tokens": 10000,
+        "supports_streaming": true,
+        "supports_function_calling": true,
+        "max_context_length": 300000,
+        "model_type": "gpt"
+      },
+      "ui": {
+        "color": "#10a37f",
+        "icon": "openai",
+        "popular": false
+      }
+    },
+    "gpt-4.1-nano": {
+      "display_name": "GPT 4.1 Nano ",
+      "description": "Fastest, most cost-efficient version of GPT-4.1",
+      "category": "openai",
+      "provider": "openai",
+      "enabled": true,
+      "settings": {
+        "temperature": 1,
+        "max_tokens": null,
+        "supports_streaming": true,
+        "supports_function_calling": true,
+        "max_context_length": 300000,
+        "model_type": "gpt"
+      },
+      "ui": {
+        "color": "#ff6b35",
+        "icon": "openai",
+        "popular": false
+      }
+    },    
+    "gpt-4o": {
+      "display_name": "GPT-4o",
+      "description": "Most advanced multimodal model with vision and audio capabilities",
+      "category": "openai",
+      "provider": "openai",
+      "enabled": true,
+      "settings": {
+        "temperature": 0.7,
+        "max_tokens": 10000,
+        "supports_streaming": true,
+        "supports_function_calling": true,
+        "max_context_length": 100000,
+        "model_type": "gpt"
+      },
+      "ui": {
+        "color": "#10a37f",
+        "icon": "openai",
+        "popular": true
+      }
+    },
+    "gpt-4o-mini": {
+      "display_name": "GPT-4o Mini",
+      "description": "Lightweight version of GPT-4 Omni for faster responses",
+      "category": "openai",
+      "provider": "openai",
+      "enabled": true,
+      "settings": {
+        "temperature": 0.7,
+        "max_tokens": 10000,
+
+        "supports_streaming": true,
+        "supports_function_calling": true,
+        "max_context_length": 100000,
+        "model_type": "gpt"
+      },
+      "ui": {
+        "color": "#10a37f",
+        "icon": "openai",
+        "popular": true
+      }
+    },
+    "gpt-5-nano": {
+      "display_name": "GPT-5 Nano",
+      "description": "Experimental next-generation model with fixed temperature",
+      "category": "openai",
+      "provider": "openai",
+      "enabled": true,
+      "settings": {
+        "temperature": 1,
+        "max_tokens": null,
+        "supports_streaming": true,
+        "supports_function_calling": true,
+        "max_context_length": 300000,
+        "model_type": "gpt",
+        "reasoning_effort": "medium",
+        "reasoning_summary": "auto"
+      },
+      "ui": {
+        "color": "#ff6b35",
+        "icon": "openai",
+        "popular": false
+      }
+    },
+      "gpt-5-mini": {
+      "display_name": "GPT-5 Mini",
+      "description": "Experimental next-generation model with fixed temperature",
+      "category": "openai",
+      "provider": "openai",
+      "enabled": true,
+      "settings": {
+        "temperature": 1,
+        "max_tokens": null,
+        "supports_streaming": true,
+        "supports_function_calling": true,
+        "max_context_length": 300000,
+        "model_type": "gpt",
+        "reasoning_effort": "medium",
+        "reasoning_summary": "auto"
+      },
+      "ui": {
+        "color": "#ff6b35",
+        "icon": "openai",
+        "popular": false
+      }
+    },
+    "gpt-5": {
+      "display_name": "GPT-5",
+      "description": "Experimental next-generation model with fixed temperature",
+      "category": "openai",
+      "provider": "openai",
+      "enabled": true,
+      "settings": {
+        "temperature": 1,
+        "max_tokens": null,
+        "supports_streaming": true,
+        "supports_function_calling": true,
+        "max_context_length": 300000,
+        "model_type": "gpt",
+        "reasoning_effort": "medium",
+        "reasoning_summary": "auto"
+      },
+      "ui": {
+        "color": "#ff6b35",
+        "icon": "openai",
+        "popular": false
+      }
+    },
+      "gpt-5.1": {
+      "display_name": "GPT-5.1",
+      "description": "Next-generation model with fixed temperature",
+      "category": "openai",
+      "provider": "openai",
+      "enabled": true,
+      "settings": {
+        "temperature": 1,
+        "max_tokens": null,
+        "supports_streaming": true,
+        "supports_function_calling": true,
+        "max_context_length": 300000,
+        "model_type": "gpt",
+        "reasoning_effort": "medium",
+        "reasoning_summary": "auto"
+      },
+      "ui": {
+        "color": "#ff6b35",
+        "icon": "openai",
+        "popular": false
+      }
+    },
+    "gpt-5.1-codex": {
+      "display_name": "GPT-5.1 Codex",
+      "description": "GPT Codex model optimized for coding tasks",
+      "category": "openai",
+      "provider": "openai-responses",
+      "enabled": false,
+      "settings": {
+        "temperature": null,
+        "max_tokens": null,
+        "supports_streaming": true,
+        "supports_function_calling": true,
+        "max_context_length": 200000,
+        "model_type": "gpt",
+        "reasoning_effort": "medium",
+        "reasoning_summary": "auto"
+      },
+      "ui": {
+        "color": "#ff6b35",
+        "icon": "openai",
+        "popular": false
+      }
+    },
+    "openai/gpt-oss-20b": {
+      "display_name": "GPT OSS 20B",
+      "description": "Open-source GPT model with reasoning capabilities",
+      "category": "groq",
+      "provider": "groq",
+      "enabled": true,
+      "settings": {
+        "temperature": 0.7,
+        "max_tokens": 2000,
+        "supports_streaming": true,
+        "supports_function_calling": true,
+        "max_context_length": 80000,
+
+        "model_type": "gpt",
+        "reasoning_effort": "medium"
+      },
+      "ui": {
+        "color": "#f97316",
+        "icon": "groq",
+        "popular": true
+      }
+    },
+    "openai/gpt-oss-120b": {
+      "display_name": "GPT OSS 120B",
+      "description": "Open-source GPT model with reasoning capabilities",
+      "category": "groq",
+      "provider": "groq",
+      "enabled": true,
+      "settings": {
+        "temperature": 0.7,
+        "max_tokens": 10000,
+        "supports_streaming": true,
+        "supports_function_calling": true,
+        "max_context_length": 110000,
+
+        "model_type": "gpt",
+        "reasoning_effort": "low"
+      },
+      "ui": {
+        "color": "#f97316",
+        "icon": "groq",
+        "popular": true
+      }
+    },      
+    "meta-llama/llama-4-maverick-17b-128e-instruct": {
+      "display_name": "Llama 4 Maverick 17B (Scout)",
+      "description": "Higher reasoning quality, better benchmarks, but shorter max context length. Best for high-quality reasoning and complex tasks.",
+      "category": "groq",
+      "provider": "groq",
+      "enabled": true,
+      "settings": {
+        "temperature": 1,
+        "max_tokens": 4000,
+        "supports_streaming": true,
+        "supports_function_calling": true,
+        "max_context_length": 30000,
+        "model_type": "llama"
+      },
+      "ui": {
+        "color": "#f97316",
+        "icon": "groq",
+        "popular": true
+      }
+    },
+    "llama-3.3-70b-versatile": {
+      "display_name": "Llama 3.3 70B Versatile",
+      "description": "Powerful Llama model on Groq with fast inference",
+      "category": "groq",
+      "provider": "groq",
+      "enabled": true,
+      "settings": {
+        "temperature": 0.7,
+        "max_tokens": 8000,
+        "supports_streaming": true,
+        "supports_function_calling": true,
+        "max_context_length": 128000,
+        "model_type": "llama"
+      },
+      "ui": {
+        "color": "#f97316",
+        "icon": "groq",
+        "popular": true
+      }
+    },
+    "meta-llama/llama-4-scout-17b-16e-instruct": {
+      "display_name": "Llama 4 Scout 17B 16E",
+      "description": "Ideal for multi-document analysis, all-day conversations, and tasks requiring huge memory.",
+      "category": "groq",
+      "provider": "groq",
+      "enabled": true,
+      "settings": {
+        "temperature": 1,
+        "max_tokens": 4000,
+        "supports_streaming": true,
+        "supports_function_calling": true,
+        "max_context_length": 30000,
+        "model_type": "llama"
+      },
+      "ui": {
+        "color": "#f97316",
+        "icon": "groq",
+        "popular": true
+      }
+    },
+    "grok-4-fast-reasoning": {
+      "display_name": "Grok 4 Fast Reasoning",
+      "description": "xAI's latest Grok 4 model optimized for fast reasoning and complex problem solving",
+      "category": "xai",
+      "provider": "xai",
+      "enabled": true,
+      "settings": {
+        "temperature": 0.7,
+        "max_tokens": 10000,
+        "supports_streaming": true,
+        "supports_function_calling": true,
+        "max_context_length": 30000,
+        "model_type": "grok"
+      },
+      "ui": {
+        "color": "#1DA1F2",
+        "icon": "xai",
+        "popular": true
+      }
+    },  
+    "grok-4-1-fast-reasoning": {
+      "display_name": "Grok 4.1 Fast Reasoning",
+      "description": "xAI's latest Grok 4.1 model optimized for fast reasoning and complex problem solving",
+      "category": "xai",
+      "provider": "xai",
+      "enabled": true,
+      "settings": {
+        "temperature": 0.7,
+        "max_tokens": 10000,
+        "supports_streaming": true,
+        "supports_function_calling": true,
+        "max_context_length": 300000,
+        "model_type": "grok"
+      },
+      "ui": {
+        "color": "#1DA1F2",
+        "icon": "xai",
+        "popular": true
+      }
+    },
+    "grok-code-fast-1": {
+      "display_name": "Grok Code Fast 1",
+      "description": "Compact and efficient Grok Code model for fast responses and general tasks",
+      "category": "xai",
+      "provider": "xai",
+      "enabled": true,
+      "settings": {
+        "temperature": 0.7,
+        "max_tokens": 10000,
+        "supports_streaming": true,
+        "supports_function_calling": true,
+        "max_context_length": 200000,
+        "model_type": "grok"
+      },
+      "ui": {
+        "color": "#1DA1F2",
+        "icon": "xai",
+        "popular": true
+      }
+    },
+    "grok-3-mini": {
+      "display_name": "Grok 3 Mini",
+      "description": "Compact and efficient Grok 3 model for fast responses and general tasks",
+      "category": "xai",
+      "provider": "xai",
+      "enabled": true,
+      "settings": {
+        "temperature": 0.7,
+        "max_tokens": 2096,
+        "supports_streaming": true,
+        "supports_function_calling": true,
+        "max_context_length": 30000,
+        "model_type": "grok"
+      },
+      "ui": {
+        "color": "#1DA1F2",
+        "icon": "xai",
+        "popular": true
+      }
+    },
+    "MiniMaxAI/MiniMax-M2.5": {
+      "display_name": "MiniMax M2.5",
+      "description": "MiniMax M2.5 large context model via DeepInfra",
+      "category": "deepinfra",
+      "provider": "deepinfra",
+      "enabled": true,
+      "settings": {
+        "temperature": 0.7,
+        "max_tokens": 10000,
+        "supports_streaming": true,
+        "supports_function_calling": true,
+        "max_context_length": 300000,
+        "model_type": "gpt"
+      },
+      "ui": {
+        "color": "#6366f1",
+        "icon": "deepinfra",
+        "popular": false
+      }
+    }
+  },
+  "categories": {
+    "openai": {
+      "name": "OpenAI Models",
+      "description": "GPT and O1 models from OpenAI",
+      "icon": "openai",
+      "color": "#10a37f"
+    },
+    "groq": {
+      "name": "Groq Models",
+      "description": "Fast Llama models powered by Groq inference",
+      "icon": "groq",
+      "color": "#f97316"
+    },
+    "xai": {
+      "name": "xAI Models",
+      "description": "Grok models by xAI with enhanced reasoning",
+      "icon": "xai",
+      "color": "#1DA1F2"
+    },
+    "deepinfra": {
+      "name": "DeepInfra Models",
+      "description": "Open-source models via DeepInfra inference",
+      "icon": "deepinfra",
+      "color": "#6366f1"
+    }
+  },
+  "default_model": "gpt-5-nano",
+  "fallback_settings": {
+    "temperature": 0.1,
+    "max_tokens": 10000,
+    "supports_streaming": true,
+    "supports_function_calling": true,
+    "max_context_length": 300000,
+    "model_type": "gpt"
+  },
+  "multiagent": {
+    "enabled": true,
+    "model": "gpt-4o",
+    "max_workers": 5,
+    "timeout_seconds": 300,
+    "enable_parallel": true,
+    "failure_handling": "partial_results"
+  }
+}

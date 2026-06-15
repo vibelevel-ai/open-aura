@@ -1,0 +1,17 @@
+# Open Aura — runtime dependencies (slim: the Aura MCP + referenceless scorer).
+mcp==1.25.0
+fastapi==0.125.0
+uvicorn==0.38.0
+starlette==0.50.0
+pydantic==2.12.5
+pydantic-settings==2.12.0
+typing-extensions>=4.12
+python-dotenv>=1.0
+psycopg2-binary>=2.9
+
+# LLM providers — the scorer calls these via LangChain. Bring your own key;
+# you only need the one your AURA_SCORING_MODEL uses.
+langchain-core==1.2.4
+langchain-openai==1.1.6
+langchain-groq==1.1.1
+langchain-anthropic==1.2.0

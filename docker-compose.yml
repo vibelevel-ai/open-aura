@@ -1,0 +1,40 @@
+# Open Aura — one-command local stack: Postgres + the Aura MCP server.
+#   1. cp .env.example .env   and set a provider API key
+#   2. docker compose up
+#   3. point your agent's MCP config at  http://localhost:8090/mcp  (no auth)
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: aura
+      POSTGRES_PASSWORD: aura
+      POSTGRES_DB: aura
+    volumes:
+      - aura_pgdata:/var/lib/postgresql/data
+      # schema.sql runs once, on first init of an empty data volume.
+      - ./schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aura -d aura"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  aura:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_ENV: local
+      AURA_LOCAL_MODE: "true"
+      POSTGRES_URL: postgresql://aura:aura@db:5432/aura
+      AURA_MCP_PORT: "8090"
+      AURA_SCORING_MODEL: ${AURA_SCORING_MODEL:-openai/gpt-oss-120b}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    ports:
+      - "8090:8090"
+
+volumes:
+  aura_pgdata:
