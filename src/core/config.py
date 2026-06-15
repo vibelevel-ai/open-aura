@@ -66,18 +66,16 @@ class Config:
         # Set CORS origins based on environment
         if self.environment == "local":
             self.cors_origins = [
-                "http://localhost:3000",      # Next.js frontend (typical port)
-                "http://localhost:3001",      # Next.js frontend (alternate port)
-                "http://localhost:8000",      # Local frontend (your requested port)
+                "http://localhost:3000",      # local frontend dev server (typical port)
+                "http://localhost:3001",      # local frontend dev server (alternate port)
+                "http://localhost:8000",      # local frontend (alternate port)
                 "http://127.0.0.1:3000",     # Alternative localhost
                 "http://127.0.0.1:8000",     # Alternative localhost (your port)
             ]
         elif self.environment == "preview":
             self.cors_origins = [
                 "*",  # Allow all origins for preview environment
-                # Or be more specific if you prefer:
-                # "https://mag-nextjs-fastapi-git-preview-gpt-socials-projects.vercel.app",
-                # "https://*.vercel.app",  # All Vercel preview deployments
+                # Or be more specific if you prefer.
             ]
         else:  # production
             allowed_origins_env = os.getenv("ALLOWED_ORIGINS")

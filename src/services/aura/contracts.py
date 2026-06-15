@@ -4,12 +4,9 @@ Every Aura component codes against THESE shapes:
   - the MCP tools validate inbound evidence with `EvidencePacket`
   - the scoring service returns `ScoreResult`
   - the REST endpoints return `ProfileResponse` / `SessionSummary`
-  - the frontend mirrors these as TypeScript types (see web `lib/aura/types.ts`)
 
 Keep this file dependency-light and stable. Changing a shape here is a
-cross-cutting change — update the TS mirror in lockstep.
-
-Independent of assessment scoring (decision #17).
+cross-cutting change.
 """
 from __future__ import annotations
 
@@ -35,7 +32,7 @@ Source = Literal[
 IngestedVia = Literal["mcp", "import"]
 CardScope = Literal["overall", "session"]
 CardClass = Literal["credibility", "personality"]
-# Task type (spec §1.3) — the agent infers ONE from this fixed set; correlation
+# Task type — the agent infers ONE from this fixed set; correlation
 # insights across task types are deferred, but the tag is captured now.
 TaskType = Literal[
     "debugging", "architecture", "feature_build", "code_review",
@@ -108,7 +105,7 @@ class Card(TypedDict, total=False):
     question: str      # "When are you most productive?"
     headline: str      # "Night owl"
     detail: str        # "70% of your work lands 10pm-2am."
-    growth_nudge: str  # one-sentence prescriptive next step (spec §1.1; optional)
+    growth_nudge: str  # one-sentence prescriptive next step (optional)
     stat: Any          # raw value for client-side formatting/badges
 
 
@@ -159,16 +156,13 @@ class ProfileResponse(TypedDict, total=False):
     sources: dict[str, int]                 # {claude_code: 31, web: 11, ...}
     sessions: list[SessionSummary]
     stats: dict  # {avg_tokens_per_session, avg_prompts_per_session, top_model, total_tokens}
-    benchmarks: dict  # personal-relative benchmarks (spec §1.4)
-    dimension_trends: dict[str, list[float]]  # last-N per-dimension score series (spec §1.2)
+    benchmarks: dict  # personal-relative benchmarks
+    dimension_trends: dict[str, list[float]]  # last-N per-dimension score series
     ships_it: bool  # majority of sessions taken through to a shipped/delivered outcome
 
 
 class WhoAmIResponse(TypedDict, total=False):
-    """`whoami` MCP tool — cheap identity/connection check (no aggregation).
-
-    MCP-only (the web never calls it), so it has no `lib/aura/types.ts` mirror.
-    """
+    """`whoami` MCP tool — cheap identity/connection check (no aggregation)."""
     connected: bool
     handle: str
     display_name: str
@@ -179,7 +173,7 @@ class WhoAmIResponse(TypedDict, total=False):
 
 
 class ImportSummary(TypedDict, total=False):
-    """`import_history` MCP tool result. MCP-only (no TS mirror)."""
+    """`import_history` MCP tool result."""
     scored: int
     skipped: int                            # deduped (already imported) + invalid
     total: int
@@ -188,7 +182,7 @@ class ImportSummary(TypedDict, total=False):
 
 # ===========================================================================
 # Scoring service interface — agents that CALL scoring (MCP, REST) code against
-# this Protocol, decoupled from the concrete implementation (BE-B writes it).
+# this Protocol, decoupled from the concrete implementation.
 # ===========================================================================
 
 @runtime_checkable

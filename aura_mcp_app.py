@@ -1,10 +1,7 @@
 """VibeLevel Aura — standalone MCP sidecar entrypoint.
 
-This is the OWN process for the Aura MCP connector (decision #1, §3 of
-docs/AI_WORK_PROFILE_CONNECTOR_POC.md). It shares ``src/`` with the main
-backend but is deployed as a SEPARATE Fly process/app from the same image. The
-live revenue API (``app.py`` / its lifespan) is intentionally untouched so the
-FastMCP session-manager lifespan wiring never intrudes on the revenue backend.
+This is the OWN process for the Aura MCP connector. It is deployed as a
+standalone app with its own FastMCP session-manager lifespan wiring.
 
 Run it with uvicorn:
 
@@ -12,14 +9,14 @@ Run it with uvicorn:
 
 (or ``python aura_mcp_app.py`` which calls uvicorn for you).
 
-What this wires (mirrors the PFG ``create_app`` pattern):
+What this wires:
   - builds the FastMCP streamable-HTTP sub-app (``mcp.streamable_http_app()``),
   - applies ``PATAuthMiddleware`` to it (bearer-PAT on POST; GET open for
     discovery),
   - starts ``mcp.session_manager`` in the FastAPI lifespan — mounting a
     Starlette sub-app onto FastAPI does NOT propagate the sub-app's lifespan,
     so the session manager must be started here or every ``/mcp/`` request 500s,
-  - exposes ``/health`` for Fly,
+  - exposes ``/health`` for health checks,
   - mounts the MCP app at ``/mcp`` (so the JSON-RPC endpoint is ``/mcp/``),
   - rewrites ``/mcp`` -> ``/mcp/`` so Starlette's mount 307-redirect doesn't
     strip the POST body from MCP clients.
@@ -36,8 +33,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # Load .env.<APP_ENV> BEFORE importing src.* (config reads env at import time).
-# Production (Fly) injects env vars directly; this mirrors main.py for local dev
-# parity so `python aura_mcp_app.py` sees POSTGRES_URL / AURA_PAT_HASH_SECRET.
+# Production injects env vars directly; this loads them for local dev so
+# `python aura_mcp_app.py` sees POSTGRES_URL / AURA_PAT_HASH_SECRET.
 _env = os.getenv("APP_ENV", "local")
 _env_file = {"local": ".env.local", "preview": ".env.preview",
              "production": ".env.prod", "prod": ".env.prod"}.get(_env, ".env")
@@ -150,8 +147,7 @@ def create_app() -> FastAPI:
         title="VibeLevel Aura MCP",
         description=(
             "Standalone MCP connector for VibeLevel Aura. Agents score real "
-            "local AI work sessions via a bearer PAT. Independent of the live "
-            "VibeLevel API and of assessment/Hiring scoring."
+            "local AI work sessions via a bearer PAT."
         ),
         version="0.1.0",
         lifespan=_lifespan,
@@ -181,9 +177,8 @@ def create_app() -> FastAPI:
             "health": "/health",
         }
 
-    # (Open Aura: the OAuth<->PAT bridge for OAuth-only MCP clients is a hosted
-    # feature and is intentionally omitted here — header-config clients like
-    # Claude Code / Cursor send the PAT directly, and local mode needs no auth.)
+    # Header-config clients like Claude Code / Cursor send the PAT directly, and
+    # local mode needs no auth.
 
     # Mount the MCP HTTP transport. ``mcp_app`` was built above so the session
     # manager exists in time for ``_lifespan`` to start it.
@@ -191,7 +186,7 @@ def create_app() -> FastAPI:
 
     # Starlette's mount() 307-redirects "/mcp" -> "/mcp/", which makes MCP
     # clients lose the POST body on redirect. Rewrite the path before the
-    # router sees it (mirrors PFG).
+    # router sees it.
     class _MCPSlashRewrite:
         def __init__(self, asgi_app):
             self.app = asgi_app

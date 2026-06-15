@@ -1,17 +1,12 @@
 """VibeLevel Aura — scoring model, CODING modality (referenceless).
 
-Standalone (decision #17): not imported by assessment scoring, and it imports
-nothing from it. Dimensions are derived from the proven coding model but made
-**referenceless** — no `assessment:*` evidence sources, since real work has no
-rubric/requirements/test-cases. We score the human's PROCESS and COLLABORATION
-as evidenced in the transcript + the work produced.
+Scoring is **referenceless** — there are no rubric/requirements/test-cases,
+since real work has none. We score the human's PROCESS and COLLABORATION as
+evidenced in the transcript + the work produced.
 
-Mapping from the assessment coding dims:
-  prompting, ai_pairing, human_contribution   → transfer (chat-only / meta)
-  product_thinking, design_thinking            → reframe (drop the rubric source,
-                                                 judge from transcript/work)
-  code_understanding, verification             → DROPPED (lighter scored set)
-  requirements_completion                      → DROPPED (pure rubric coverage)
+Scored dimensions:
+  prompting, ai_pairing, human_contribution   → chat-only / meta
+  product_thinking, design_thinking            → judged from transcript/work
 """
 from __future__ import annotations
 
@@ -22,8 +17,8 @@ logger = logging.getLogger(__name__)
 
 MODALITY = "coding"
 
-# Framing injected into the scoring prompt. The key difference from assessment
-# scoring: there is no goal/rubric, and its absence must not be penalised.
+# Framing injected into the scoring prompt: there is no goal/rubric, and its
+# absence must not be penalised.
 AURA_PROMPT_FRAMING = (
     "You are evaluating a REAL, self-directed AI-assisted work session. There is "
     "NO assessment, NO rubric, NO stated requirements, and NO test cases. Do NOT "
@@ -125,7 +120,7 @@ AURA_SCORING_MODEL_CODING: Dict[str, Any] = {
             ],
         },
     },
-    # Aura Score bands — DISTINCT from assessment Novice→Expert (decision #16).
+    # Aura Score bands.
     "levels": [
         {"name": "Emerging", "min_score": 0.0, "max_score": 3.0},
         {"name": "Capable", "min_score": 3.0, "max_score": 6.0},
@@ -171,7 +166,7 @@ AURA_SCORING_MODEL_CODING: Dict[str, Any] = {
     ],
     # ----- Card-signal taxonomy. Source: 'telemetry' (deterministic, no LLM),
     # 'score' (from dimensions), or 'llm' (qualitative pass). The signal extractor
-    # (BE-A) computes telemetry/score cards; the scoring service (BE-B) fills llm cards. -----
+    # computes telemetry/score cards; the scoring service fills llm cards. -----
     "card_signals": [
         # credibility (hiring-facing)
         {"id": "plan_ratio", "klass": "credibility", "source": "telemetry", "scope": "both",

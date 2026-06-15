@@ -16,14 +16,14 @@ of truth for:
     canonical ``Source`` so new clients are CAPTURED, not dropped to ``web`` or
     rejected by validation.
 
-Standalone (decision #17): pure data + string helpers, imports nothing.
+Pure data + string helpers, imports nothing.
 """
 from __future__ import annotations
 
 from typing import Dict, List, Optional
 
 # Capability flags per recognised agent `source`. Keys mirror contracts.Source.
-#   label         : human label (the leaderboard "Agent" column / instructions)
+#   label         : human label shown for the agent
 #   token_command : how to read REAL token usage (e.g. Claude Code `/context`)
 #   tools         : exposes named tools (counts are reportable)
 #   subagents     : can dispatch sub-agents (orchestration)

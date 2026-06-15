@@ -1,12 +1,7 @@
 """VibeLevel Aura — referenceless scoring service (the concrete `AuraScorer`).
 
-Standalone (decision #17): this module is fully independent of the assessment
-scoring engine (`scoring_service_v2/v3`). It does NOT import or subclass any of
-that code — it only *replicates* the small, proven LLM-call + JSON-parse +
-engagement-dampening pattern, and reuses platform infra:
-
   - LLM client:  `core.model_config.model_config_manager.create_llm(...)`
-                 invoked off-thread via `asyncio.to_thread` (same as v2).
+                 invoked off-thread via `asyncio.to_thread`.
   - DB:          `core.database_sync.get_pool()` (psycopg2, RealDictCursor).
   - Model defs:  `aura_model_coding` / `aura_model_writing` (selected by modality).
   - Signals:     `aura_signal_extractor` (fingerprint / modality / cards / archetype).
@@ -46,10 +41,8 @@ from .aura_signal_extractor import (
 
 logger = logging.getLogger(__name__)
 
-# Scoring LLM model — configurable, defaults to the same family v2 uses.
-AURA_SCORING_MODEL = os.getenv(
-    "AURA_SCORING_MODEL", os.getenv("VIBELEVEL_SCORING_MODEL", "gpt-5.1")
-)
+# Scoring LLM model — configurable.
+AURA_SCORING_MODEL = os.getenv("AURA_SCORING_MODEL", "openai/gpt-oss-120b")
 
 # Safety guardrails on prompt size.
 MAX_TURNS = 200          # transcript excerpts fed to the model
@@ -116,8 +109,8 @@ class AuraScoringService(AuraScorer):
         ingested_via='import'. Capped to MAX_IMPORT_BATCH per call.
 
         Idempotent + resumable: each session is persisted independently and
-        deduped on (user_id, fingerprint). A failed/interrupted call (e.g. a Fly
-        machine stop mid-import) can be safely RESUBMITTED by the agent — the
+        deduped on (user_id, fingerprint). A failed/interrupted call (e.g. a
+        process stop mid-import) can be safely RESUBMITTED by the agent — the
         already-scored sessions are skipped and only the rest are scored.
         """
         total = len(packets)
@@ -381,7 +374,7 @@ class AuraScoringService(AuraScorer):
             return "coding"
 
     def _compute_engagement_level(self, evidence: EvidencePacket) -> str:
-        """Derive engagement from a COMPOSITE of behavioral signals (spec §1.7).
+        """Derive engagement from a COMPOSITE of behavioral signals.
 
         Engagement gates the craft-dimension dampening. It must reflect how much
         the human actually DROVE the session — not just the human/total token
@@ -396,7 +389,7 @@ class AuraScoringService(AuraScorer):
 
         Returns one of 'low' | 'moderate' | 'high' (matches the dampening keys
         in the model's engagement_thresholds). Token *share* never gates this —
-        missing/estimated telemetry is never a penalty (spec §1.6/§1.7).
+        missing/estimated telemetry is never a penalty.
         """
         user_turns = [t for t in evidence.turns if t.role == "user"]
         n_user = len(user_turns)
@@ -451,8 +444,8 @@ class AuraScoringService(AuraScorer):
     ) -> bool:
         """Cap output/craft dimension scores when engagement is low.
 
-        Mirrors v2's server-side enforcement, against the Aura model's
-        dampening_rules. Process dims (prompting, ai_pairing) are not capped.
+        Server-side enforcement against the Aura model's dampening_rules.
+        Process dims (prompting, ai_pairing) are not capped.
         """
         rules = model.get_dampening_rules()
         thresholds = rules.get("engagement_thresholds", {})
@@ -633,13 +626,13 @@ class AuraScoringService(AuraScorer):
 
         return "\n".join(parts)
 
-    # -- LLM call (replicated v2 pattern — same client, off-thread, fence-parse) -
+    # -- LLM call (same client, off-thread, fence-parse) --
 
     async def _call_llm(self, prompt: str) -> Optional[Dict[str, Any]]:
         """Call the scoring LLM and parse its JSON. Retries up to 3 times.
 
         Reuses `model_config_manager.create_llm` + LangChain `HumanMessage`,
-        invoked via `asyncio.to_thread` — identical client/util to v2.
+        invoked via `asyncio.to_thread`.
         """
         from ...core.model_config import model_config_manager
         from langchain_core.messages import HumanMessage

@@ -1,16 +1,12 @@
 """VibeLevel Aura — Personal Access Token auth (mint, hash, verify, middleware).
 
 Agents (Claude Code / Cursor / Claude Desktop) call the Aura MCP server as a
-separate local process with NO browser cookie, so the monolith's only existing
-auth — header-trust from the Next.js proxy (``src/core/auth.py``) — is unusable
-here. PAT auth is therefore net-new.
+separate local process with NO browser cookie, so PAT auth is used here.
 
-Design (decision #9 one-click PAT, §7 of the connector spec) mirrors the proven
-PFG pattern (``project_pfg/src/auth/pat.py`` + ``middleware.py``), adapted to:
-  - our ``"AuraPersonalAccessToken"`` table (migrations/add_aura_tables.sql),
+Design (one-click PAT), adapted to:
+  - the ``"AuraPersonalAccessToken"`` table (schema.sql),
   - the ``aura_`` token prefix,
-  - the repo's SYNCHRONOUS psycopg2 pool (``src/core/database_sync.py``) rather
-    than PFG's async SQLAlchemy,
+  - the repo's SYNCHRONOUS psycopg2 pool (``src/core/database_sync.py``),
   - a ``current_user_id()`` contextvar the MCP tools read to resolve the caller.
 
 Token format: ``aura_<43-char-base62-random>``. We store HMAC-SHA256 (hex) of
@@ -148,12 +144,12 @@ def generate_pat(user_id: str, name: str = "Default") -> dict:
       - ``raw``    — the full ``aura_...`` token. Show to the user ONCE; it is
                      never stored and cannot be recovered.
       - ``prefix`` — ``aura_`` + first 6 chars of the random tail, for UI
-                     display in the token list (matches the migration's example
-                     ``'aura_ab12cd'`` and the ``VARCHAR(16)`` prefix column).
+                     display in the token list (e.g. ``'aura_ab12cd'``; stored
+                     in the ``VARCHAR(16)`` prefix column).
       - ``id``     — the ``"AuraPersonalAccessToken".id`` (UUID) for rename/revoke.
 
     The DB stores only the HMAC hash + prefix + metadata, never the raw token.
-    This is the one-click-Connect mint path (decision #9): the web "Connect your
+    This is the one-click-Connect mint path: the web "Connect your
     agent" card calls this, embeds ``raw`` in a copy-paste MCP config, and shows
     the prefix thereafter.
     """
@@ -257,11 +253,10 @@ def verify_pat(raw: str) -> Optional[str]:
 # ---------------------------------------------------------------------------
 
 class PATAuthMiddleware(BaseHTTPMiddleware):
-    """Starlette middleware on the mounted Aura MCP app (mirrors PFG's
-    ``MCPPATAuthMiddleware``).
+    """Starlette middleware on the mounted Aura MCP app.
 
     - GET is allowed UNAUTHENTICATED so MCP clients can do server/capability
-      discovery before a token is configured (matches PFG behaviour).
+      discovery before a token is configured.
     - POST (every JSON-RPC tool invocation) REQUIRES a valid bearer PAT. On
       success we set ``current_user_id()`` for the request and reset it after.
 

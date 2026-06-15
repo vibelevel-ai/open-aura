@@ -1,17 +1,17 @@
 """VibeLevel Aura — FastMCP server (the agent-facing tool surface).
 
 This is the standalone MCP server an end-user's local agent (Claude Code /
-Cursor / Claude Desktop) connects to. It exposes the four POC tools (§4 of
-docs/AI_WORK_PROFILE_CONNECTOR_POC.md), each resolving the caller from the PAT
-the ``PATAuthMiddleware`` validated (the ``current_user_id()`` contextvar).
+Cursor / Claude Desktop) connects to. It exposes the Aura tools, each resolving
+the caller from the PAT the ``PATAuthMiddleware`` validated (the
+``current_user_id()`` contextvar).
 
 Tool docstrings here are READ BY THE AGENT to decide when/how to call each tool
 — they are written for the model, not for human maintainers. The redaction
 contract lives in the shape itself: tools validate inbound evidence with
 ``EvidencePacket`` (contracts.py), so raw transcripts never need to be sent.
 
-Decision #17: this server reuses only PLATFORM infra (DB pool, config, the Aura
-scoring + profile services). It imports nothing from assessment/Hiring scoring.
+This server reuses only PLATFORM infra (DB pool, config, the Aura scoring +
+profile services).
 
 The mount + lifespan wiring lives in ``aura_mcp_app.py`` (repo root); this
 module only defines ``mcp`` and the tools.
@@ -50,7 +50,6 @@ def _allowed_hosts() -> list[str]:
     local dev works with zero env config. Production/tunnel hostnames come from
     ``AURA_MCP_PUBLIC_HOST`` and/or ``AURA_MCP_ALLOWED_HOSTS`` (comma-separated).
     ``AURA_MCP_ALLOWED_HOSTS=*`` disables host checks (NOT advised in prod).
-    Mirrors PFG's ``mcp_allowed_hosts_list``.
     """
     raw = os.environ.get("AURA_MCP_ALLOWED_HOSTS", "").strip()
     if raw == "*":
@@ -86,11 +85,10 @@ logger.info(
 
 # `streamable_http_path="/"` keeps the URL clean once mounted: the entrypoint
 # mounts this sub-app at `/mcp`, so the JSON-RPC endpoint is `/mcp/` (not the
-# confusing `/mcp/mcp` FastMCP's default `/mcp` path would produce). Mirrors PFG.
+# confusing `/mcp/mcp` FastMCP's default `/mcp` path would produce).
 # `stateless_http=True`: every tool call is independent (no server-side
-# `Mcp-Session-Id` state), so ANY Fly machine can serve ANY request. This is the
-# transport-layer half of the "any machine takes over" design — scoring keeps no
-# process-local state, so we want the opposite of session affinity here.
+# `Mcp-Session-Id` state), so ANY instance can serve ANY request. Scoring keeps
+# no process-local state, so we want the opposite of session affinity here.
 mcp = FastMCP(
     "vibelevel-aura",
     streamable_http_path="/",
@@ -222,7 +220,7 @@ async def import_history(sessions: list[dict]) -> ImportSummary:
     """Bulk-import the user's PAST local AI sessions to bootstrap a rich Aura.
 
     WHEN to use: when the user first connects and wants an instantly card-rich
-    profile (the one-shot history import — decision #13). Read the user's local
+    profile (the one-shot history import). Read the user's local
     history (e.g. ``~/.claude``, Cursor, Codex), redact each session into an
     Evidence Packet (same shape as ``score_this_session``'s ``evidence``), and
     send them here. For a single fresh session afterwards, use

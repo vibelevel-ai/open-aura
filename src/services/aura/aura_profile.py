@@ -1,16 +1,10 @@
-"""VibeLevel Aura — profile aggregation + leaderboard (read side).
+"""VibeLevel Aura — profile aggregation (read side).
 
 Aggregates a user's scored `"AuraSession"` rows into the `ProfileResponse`
-shape (contracts.py) and provides the sibling Aura leaderboard query
-(decision #10: a separate ranking basis from the assessment leaderboard,
-never blended).
+shape (contracts.py).
 
-Standalone (decision #17): reuses only platform infra — the DB pool
-(`database_sync.get_conn_with_retry`) and the Aura model/signal helpers —
-never the assessment scoring engine.
-
-Web-facing path: these run behind the Next.js proxy (`x-user-id`), distinct
-from the MCP/PAT path.
+Reuses only platform infra — the DB pool (`database_sync.get_conn_with_retry`)
+and the Aura model/signal helpers.
 """
 from __future__ import annotations
 
@@ -102,11 +96,7 @@ AURA_WEB_BASE = os.getenv("AURA_PUBLIC_WEB_URL", "https://vibelevel.ai").rstrip(
 
 
 def _display_name_from_row(row: dict[str, Any]) -> str:
-    """Shown name: display_name → 'First L.' → first → 'Anonymous'.
-
-    Mirrors the assessment leaderboard fallback (decision #11) so Aura and
-    Practice surfaces present identical name formatting.
-    """
+    """Shown name: display_name → 'First L.' → first → 'Anonymous'."""
     display_name = row.get("display_name")
     if display_name and str(display_name).strip():
         return str(display_name).strip()
@@ -386,7 +376,7 @@ async def whoami_summary(user_id: str) -> WhoAmIResponse:
 
 def _compute_dimension_trends(rows: list[dict], n: int = 10) -> dict[str, list[float]]:
     """Per-dimension score series over the last `n` sessions (oldest→newest), for
-    inline sparklines (spec §1.2). `rows` are newest-first."""
+    inline sparklines. `rows` are newest-first."""
     recent = list(reversed(rows[:n]))
     trends: dict[str, list[float]] = {}
     for r in recent:
@@ -401,7 +391,7 @@ def _compute_dimension_trends(rows: list[dict], n: int = 10) -> dict[str, list[f
 
 
 def _compute_benchmarks(rows: list[dict]) -> dict:
-    """Personal-relative benchmarks from the user's OWN history (spec §1.4) — no
+    """Personal-relative benchmarks from the user's OWN history — no
     cross-user data. `rows` are newest-first (created_at DESC)."""
     from datetime import datetime, timedelta, timezone
 
@@ -607,7 +597,7 @@ async def build_profile(user_id: str) -> ProfileResponse:
             logger.warning("[Aura] _compute_stats failed for %s: %s", user_id, e)
             stats = _empty_stats()
 
-        # Personal benchmarks (§1.4) + per-dimension trend series (§1.2). Both
+        # Personal benchmarks + per-dimension trend series. Both
         # best-effort: never fatal to profile aggregation.
         try:
             benchmarks = _compute_benchmarks(rows)

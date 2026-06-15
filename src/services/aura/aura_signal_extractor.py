@@ -6,9 +6,8 @@ an `EvidencePacket` (per session) or a collection of stored `AuraSession` rows
 cards (go_to_phrase, signature, growth_edge) are filled elsewhere by the scoring
 service, NOT here.
 
-Standalone (decision #17): imports only Aura contracts + the two Aura model
-modules (coding / writing) for the card-signal templates and archetype catalogs.
-It imports nothing from the assessment engine.
+Imports only Aura contracts + the two Aura model modules (coding / writing) for
+the card-signal templates and archetype catalogs.
 
 Public interface (other Aura modules import these):
     session_fingerprint(evidence)                       -> str
@@ -84,7 +83,7 @@ def session_fingerprint(evidence: EvidencePacket) -> str:
     """Stable hash of `evidence.fingerprint_basis()` for idempotency/dedup.
 
     Import + per-session scoring both fingerprint identically so a session is
-    never double-counted (spec §9.2).
+    never double-counted.
     """
     basis = evidence.fingerprint_basis()
     return hashlib.sha256(basis.encode("utf-8")).hexdigest()
@@ -267,9 +266,8 @@ def _turn_tokens(turn: Any) -> int:
 
 
 def _fmt_tokens(n: float) -> str:
-    """Compact token count, rolled over by magnitude so it reads the same as the
-    frontend (lib/aura/format.ts): 1_250_000 -> '1.2M', 12_400 -> '12.4K',
-    950 -> '950'."""
+    """Compact token count, rolled over by magnitude: 1_250_000 -> '1.2M',
+    12_400 -> '12.4K', 950 -> '950'."""
     n = int(round(n))
     if n >= 1_000_000:
         return f"{n / 1_000_000:.1f}M"
@@ -316,7 +314,7 @@ def _real_tokens(evidence: EvidencePacket) -> Optional[Dict[str, Any]]:
 
 def session_tokens(evidence: EvidencePacket) -> Dict[str, Any]:
     """SINGLE SOURCE OF TRUTH for a session's token usage, tagged with a
-    three-tier `provenance` (spec §1.6) so the UI never shows an estimate as a
+    three-tier `provenance` so the UI never shows an estimate as a
     measured fact:
       - `measured`     — the agent supplied REAL counts (local_stats['tokens']
                          from /context etc.).
@@ -573,7 +571,7 @@ def _attach_growth_nudges(
     cards: List[Card], tel: Dict[str, Any], dims: Dict[str, Any]
 ) -> None:
     """Attach a one-sentence prescriptive `growth_nudge` to matching session
-    cards from deterministic thresholds (spec §1.1). No LLM, no aggregation."""
+    cards from deterministic thresholds. No LLM, no aggregation."""
     by_id = {c["id"]: c for c in cards}
 
     def _score(key: str) -> float:
@@ -714,7 +712,7 @@ def build_session_cards(
                                detail=_fmt(sig, pct=pct),
                                stat={"pct": pct, "did": bool(did)}))
 
-    # ---- token-usage cards (provenance-aware — spec §1.6) ----
+    # ---- token-usage cards (provenance-aware) ----
     tok = tel.get("tokens") or {}
     prov = tok.get("provenance", "measured" if tok.get("measured") else "estimated")
     if "token_footprint" in sigs and _scoped(sigs["token_footprint"]):
@@ -795,7 +793,7 @@ def build_session_cards(
                            detail=_fmt(sig, dim=top["name"], score=top["score"]),
                            stat={"dimension": top["key"], "score": top["score"]}))
 
-    # ---- growth nudges (deterministic next-step recs; spec §1.1) ----
+    # ---- growth nudges (deterministic next-step recs) ----
     _attach_growth_nudges(cards, tel, dimension_scores)
 
     return cards
@@ -916,7 +914,7 @@ def build_overall_cards(sessions: List[Dict[str, Any]], modality: str) -> List[C
                                detail=_fmt(sig, pct=pct),
                                stat={"pct": pct, "sessions": len(evidences), "did": did}))
 
-    # ---- token-usage cards (aggregate — MEASURED sessions only; spec §1.6) ----
+    # ---- token-usage cards (aggregate — MEASURED sessions only) ----
     per_session_tokens = [session_tokens(ev) for ev in evidences]
     measured_toks = [t for t in per_session_tokens if t.get("provenance") == "measured"]
     n_measured, n_total = len(measured_toks), len(per_session_tokens)

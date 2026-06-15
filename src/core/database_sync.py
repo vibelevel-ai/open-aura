@@ -1,7 +1,7 @@
 """Slim Postgres connection-pool primitives for Open Aura.
 
-Vendored from the VibeLevel backend — ONLY the pool management the Aura MCP +
-scoring/profile services need: get_pool · get_conn_with_retry · close_pool ·
+Vendored — only the connection-pool management the Aura MCP + scoring/profile
+services need: get_pool · get_conn_with_retry · close_pool ·
 test_database_connection. Backed by a psycopg2 SimpleConnectionPool over
 ``config.get_database_url()`` (set POSTGRES_URL in your .env; see .env.example).
 """

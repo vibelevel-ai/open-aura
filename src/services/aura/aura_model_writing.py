@@ -1,20 +1,15 @@
 """VibeLevel Aura — scoring model, NON-CODING (writing) modality (referenceless).
 
-Standalone (decision #17): not imported by assessment scoring, and it imports
-nothing from it. Dimensions are derived from the proven writing model
-(`vibelevel_scoring_model_writing.py`) but made **referenceless** — no
-`assessment:*` evidence sources, since real work has no rubric/requirements/
-deliverable spec. We score the human's PROCESS and COLLABORATION as evidenced in
-the transcript + the work produced, judging deliverable quality INTRINSICALLY
-(no rubric to measure against).
+Scoring is **referenceless** — there are no rubric/requirements/deliverable
+spec, since real work has none. We score the human's PROCESS and COLLABORATION
+as evidenced in the transcript + the work produced, judging deliverable quality
+INTRINSICALLY (no rubric to measure against).
 
-Mapping from the assessment writing dims:
-  prompting, ai_pairing, human_contribution    → transfer (chat-only / meta)
-  strategic_thinking, structured_thinking       → reframe (drop the rubric source,
-                                                  judge from transcript/work)
-  deliverable_quality                           → reframe (judged INTRINSICALLY:
-                                                  is the artifact itself good? —
-                                                  not "does it meet requirements")
+Scored dimensions:
+  prompting, ai_pairing, human_contribution    → chat-only / meta
+  strategic_thinking, structured_thinking       → judged from transcript/work
+  deliverable_quality                           → judged INTRINSICALLY:
+                                                  is the artifact itself good?
 
 This MIRRORS `aura_model_coding.py` in structure and getter API; only the
 dimension set, archetypes, and card signals differ (non-coding flavour).
@@ -28,9 +23,9 @@ logger = logging.getLogger(__name__)
 
 MODALITY = "noncoding"
 
-# Framing injected into the scoring prompt. The key difference from assessment
-# scoring: there is no goal/rubric, and its absence must not be penalised. For
-# non-coding, deliverable quality is judged on its own merits, not against a spec.
+# Framing injected into the scoring prompt: there is no goal/rubric, and its
+# absence must not be penalised. For non-coding, deliverable quality is judged
+# on its own merits, not against a spec.
 AURA_PROMPT_FRAMING = (
     "You are evaluating a REAL, self-directed AI-assisted work session (writing, "
     "strategy, research, analysis, or other non-coding knowledge work). There is "
@@ -150,7 +145,7 @@ AURA_SCORING_MODEL_WRITING: Dict[str, Any] = {
             ],
         },
     },
-    # Aura Score bands — DISTINCT from assessment Novice→Expert (decision #16).
+    # Aura Score bands.
     "levels": [
         {"name": "Emerging", "min_score": 0.0, "max_score": 3.0},
         {"name": "Capable", "min_score": 3.0, "max_score": 6.0},
@@ -196,7 +191,7 @@ AURA_SCORING_MODEL_WRITING: Dict[str, Any] = {
     ],
     # ----- Card-signal taxonomy. Source: 'telemetry' (deterministic, no LLM),
     # 'score' (from dimensions), or 'llm' (qualitative pass). The signal extractor
-    # (BE-A) computes telemetry/score cards; the scoring service (BE-B) fills llm cards.
+    # computes telemetry/score cards; the scoring service fills llm cards.
     # Coding-only signals dropped (parallel_agents); verify_habit reframed as
     # revision_habit; plan_ratio reframed as outline_ratio. -----
     "card_signals": [
