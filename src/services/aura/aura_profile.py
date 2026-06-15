@@ -542,6 +542,9 @@ async def build_profile(user_id: str) -> ProfileResponse:
                 sources={},
                 sessions=[],
                 stats=_empty_stats(),
+                benchmarks={},
+                dimension_trends={},
+                ships_it=False,
             )
 
         # Overall aura_score = mean of per-session scores.

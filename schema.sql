@@ -6,6 +6,7 @@
 -- Minimal user (TEXT id so the default local user 'local' works without UUIDs).
 CREATE TABLE IF NOT EXISTS "User" (
     id               TEXT PRIMARY KEY,
+    email            TEXT,
     "firstName"      TEXT,
     "lastName"       TEXT,
     display_name     TEXT,
