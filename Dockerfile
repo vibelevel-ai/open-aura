@@ -2,15 +2,16 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Deps first for layer caching.
+# Deps first for layer caching. requirements.txt includes the MCP server, the
+# scorer, Streamlit (the local viewer), and honcho (the in-container supervisor).
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-EXPOSE 8090
+# 8090 = streamable-HTTP MCP server (agents) · 3000 = read-only Streamlit UI.
+EXPOSE 8090 3000
 
-# Streamable-HTTP MCP server. --proxy-headers/--forwarded-allow-ips let it sit
-# behind a reverse proxy if you front it with one.
-CMD ["uvicorn", "aura_mcp_app:app", "--host", "0.0.0.0", "--port", "8090", \
-     "--proxy-headers", "--forwarded-allow-ips=*"]
+# One container, two processes (see Procfile): the MCP server + the local viewer.
+# honcho runs both; if either exits, honcho stops and Docker restarts the container.
+CMD ["honcho", "start"]

@@ -1,0 +1,16 @@
+# Keep secrets, VCS metadata, caches, and local virtualenvs OUT of the image.
+# (COPY . . in the Dockerfile would otherwise bake your .env — incl. API keys.)
+.git/
+.gitignore
+.dockerignore
+.env*
+__pycache__/
+*.py[cod]
+.venv/
+.venv311/
+venv/
+.streamlit/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.log

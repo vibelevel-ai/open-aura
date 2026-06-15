@@ -12,7 +12,7 @@ Open Aura is an [MCP](https://modelcontextprotocol.io) server your agent (Claude
 
 ```bash
 cp .env.example .env          # then set ONE provider key (e.g. GROQ_API_KEY)
-docker compose up             # starts Postgres + the Aura MCP server
+docker compose up             # Postgres + the app (MCP server :8090 + viewer :3000)
 ```
 
 Point your agent's MCP config at the local server (no auth in local mode):
@@ -28,15 +28,9 @@ Point your agent's MCP config at the local server (no auth in local mode):
 
 Then, after a piece of work, ask your agent to **"score this session with Aura."**
 
-### Local viewer (optional)
+### Local viewer
 
-Prefer a dashboard over raw tool output? A lightweight, **read-only** Streamlit viewer ships in this repo — opt in with a compose profile so the default stack stays just Postgres + the MCP server:
-
-```bash
-docker compose --profile ui up      # db + MCP + the viewer
-```
-
-Open **http://localhost:8501** for your Aura score, per-dimension scores, insight cards, and a session-by-session breakdown. It reads your local Postgres and reuses the exact aggregation the MCP server uses — it never scores or writes anything.
+A lightweight, **read-only** Streamlit dashboard is built into the stack — the app container runs it alongside the MCP server. After `docker compose up`, open **http://localhost:3000** for your Aura score, per-dimension scores, insight cards, and a session-by-session breakdown. It reads your local Postgres and reuses the exact aggregation the MCP server uses — it never scores or writes anything.
 
 ## What it measures
 
@@ -62,7 +56,7 @@ The redaction contract is the whole point: **raw transcripts and file contents n
 - `src/services/aura/` — the referenceless scorer, signal extraction, archetypes, profile aggregation, and the scoring **rubric** (`aura_model_coding.py` / `aura_model_writing.py`) — open for contributions.
 - `src/core/` — slim config, Postgres pool, and LLM provider routing.
 - `aura_mcp_app.py` — the entrypoint that mounts the MCP app + `/health`.
-- `streamlit_app.py` — the optional local read-only viewer (`ui` compose profile).
+- `streamlit_app.py` + `Procfile` — the local read-only viewer; the app container runs it next to the MCP server via honcho.
 
 ## Contributing
 

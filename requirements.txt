@@ -15,3 +15,8 @@ langchain-core==1.2.4
 langchain-openai==1.1.6
 langchain-groq==1.1.1
 langchain-anthropic==1.2.0
+
+# Local viewer + in-container supervisor — the single app container runs the MCP
+# server and the read-only Streamlit UI side by side (see Procfile).
+streamlit>=1.40,<2
+honcho>=1.1
