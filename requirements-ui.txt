@@ -1,0 +1,3 @@
+# Optional — only the local read-only Streamlit viewer needs this.
+# Pulled in by Dockerfile.ui / the `ui` compose profile, NOT the core MCP image.
+streamlit>=1.40,<2

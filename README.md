@@ -28,6 +28,16 @@ Point your agent's MCP config at the local server (no auth in local mode):
 
 Then, after a piece of work, ask your agent to **"score this session with Aura."**
 
+### Local viewer (optional)
+
+Prefer a dashboard over raw tool output? A lightweight, **read-only** Streamlit viewer ships in this repo — opt in with a compose profile so the default stack stays just Postgres + the MCP server:
+
+```bash
+docker compose --profile ui up      # db + MCP + the viewer
+```
+
+Open **http://localhost:8501** for your Aura score, per-dimension scores, insight cards, and a session-by-session breakdown. It reads your local Postgres and reuses the exact aggregation the MCP server uses — it never scores or writes anything.
+
 ## What it measures
 
 A referenceless read of your **process** — no rubric, no test cases — across dimensions like prompting effectiveness, AI collaboration/steering, problem decomposition, and human contribution vs. AI reliance, plus a session archetype, insight cards, and measured telemetry (tokens, tools, "ships-it" lifecycle). Tools exposed: `score_this_session`, `import_history`, `get_my_profile`, `whoami`.
@@ -52,6 +62,7 @@ The redaction contract is the whole point: **raw transcripts and file contents n
 - `src/services/aura/` — the referenceless scorer, signal extraction, archetypes, profile aggregation, and the scoring **rubric** (`aura_model_coding.py` / `aura_model_writing.py`) — open for contributions.
 - `src/core/` — slim config, Postgres pool, and LLM provider routing.
 - `aura_mcp_app.py` — the entrypoint that mounts the MCP app + `/health`.
+- `streamlit_app.py` — the optional local read-only viewer (`ui` compose profile).
 
 ## Contributing
 
