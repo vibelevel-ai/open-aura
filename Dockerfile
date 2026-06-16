@@ -13,5 +13,6 @@ COPY . .
 EXPOSE 8090 3000
 
 # One container, two processes (see Procfile): the MCP server + the local viewer.
-# honcho runs both; if either exits, honcho stops and Docker restarts the container.
-CMD ["honcho", "start"]
+# start.sh prints the URLs, then exec's honcho (which runs both; if either exits,
+# honcho stops and Docker restarts the container).
+CMD ["sh", "start.sh"]
