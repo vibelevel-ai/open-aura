@@ -13,4 +13,8 @@ venv/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+# node / next build artifacts (regenerated inside web/Dockerfile)
+node_modules/
+.next/
+out/
 *.log

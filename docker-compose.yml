@@ -1,10 +1,8 @@
-# Open Aura — one-command local stack: Postgres + the app (MCP server + viewer).
+# Open Aura — one-command local stack: Postgres + backend (MCP + REST) + viewer.
 #   1. cp .env.example .env   and set a provider API key
 #   2. docker compose up
 #   3. backend (MCP) -> http://localhost:8090/mcp   (point your agent here; no auth)
 #      viewer  (UI)  -> http://localhost:3000
-# Service names match the container names (aura-db / aura-app), so targeting one
-# service works as you'd expect: `docker compose up aura-app`.
 services:
   aura-db:
     image: postgres:16-alpine
@@ -23,8 +21,8 @@ services:
       timeout: 3s
       retries: 10
 
-  # Single app container: the MCP server (8090) + the read-only Streamlit viewer
-  # (3000), run side by side via honcho (see Procfile).
+  # Python backend: one FastAPI app serving the MCP transport (/mcp) and the
+  # REST API (/api/aura). Agents connect here; the viewer proxies to it.
   aura-app:
     build: .
     container_name: aura-app
@@ -41,8 +39,22 @@ services:
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     ports:
-      - "8090:8090"   # MCP backend (agents connect here)
-      - "3000:3000"   # Streamlit viewer
+      - "8090:8090"   # MCP backend + REST API (agents connect here)
+
+  # Next.js viewer: renders the shared @vibelevel/aura-ui package against the
+  # backend. Browser fetches /api/aura/* are proxied to aura-app internally.
+  aura-ui:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    container_name: aura-ui
+    depends_on:
+      - aura-app
+    environment:
+      INTERNAL_API_URL: http://aura-app:8090
+      AURA_PUBLIC_WEB_URL: ${AURA_PUBLIC_WEB_URL:-https://vibelevel.ai}
+    ports:
+      - "3000:3000"   # the viewer
 
 volumes:
   aura_pgdata:
