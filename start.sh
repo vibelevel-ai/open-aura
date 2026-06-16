@@ -14,4 +14,7 @@ echo "  └───────────────────────
 echo "   Point your agent's MCP config at the backend URL above, then"
 echo "   open the viewer in your browser."
 echo ""
+echo "   Hosted Aura · leaderboard · teams  →  https://www.vibelevel.ai"
+echo "   Open Aura — free & open source under Apache-2.0 · © 2026 VibeLevel"
+echo ""
 exec uvicorn aura_mcp_app:app --host 0.0.0.0 --port 8090 --proxy-headers --forwarded-allow-ips='*'
