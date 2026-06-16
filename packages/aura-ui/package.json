@@ -1,7 +1,7 @@
 {
   "name": "@vibelevel/aura-ui",
   "version": "0.1.0",
-  "description": "Presentational, auth-free Aura viewer components (React/TypeScript) for Open Aura, the local-first edition. Originally extracted from the VibeLevel SaaS; now Open Aura's own UI, free to diverge.",
+  "description": "Presentational, auth-free Aura viewer components (React/TypeScript) for Open Aura, the local-first edition. Originally extracted from the VibeLevel SaaS.",
   "license": "Apache-2.0",
   "private": true,
   "type": "module",
