@@ -84,40 +84,44 @@ PALETTES = {
     },
     "light": {
         "bg": "#f4f7fb", "hero": "#ffffff", "card": "#ffffff",
-        "text": "#0f1722", "muted": "#5b6b7d", "accent": "#06a24a",
+        "text": "#0f1722", "muted": "#5b6b7d", "accent": "#0a6b34",
         "border": "#e2e8f0", "line": "#e8edf3",
         "chip_bg": "#eef2f7", "chip_bd": "#d8e0ea",
         "track": "#e2e8f0", "sidebar": "#ffffff", "shadow": "0 6px 22px rgba(20,40,80,0.07)",
-        "pill_bg": "#eef2f7", "pill_bd": "#cfd9e6", "glow": "rgba(6,162,74,0.05)",
-        "green": "#06a24a", "blue": "#2b8fc4", "amber": "#c5800c", "red": "#d23b3b", "gray": "#8a97a6",
+        "pill_bg": "#eef2f7", "pill_bd": "#cfd9e6", "glow": "rgba(10,107,52,0.06)",
+        "green": "#0a6b34", "blue": "#2b7fb0", "amber": "#b5730a", "red": "#c63333", "gray": "#8a97a6",
     },
 }
 
 CSS_TMPL = Template("""
 <style>
-[data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecoration"] { display:none !important; }
-#MainMenu, footer { visibility:hidden; }
+[data-testid="stToolbar"], [data-testid="stDecoration"], [data-testid="stStatusWidget"], #MainMenu, footer { display:none !important; }
+[data-testid="stHeader"] { background:transparent !important; }
+/* keep the sidebar collapse/expand control visible (the expand button lives in the header). */
+[data-testid="stExpandSidebarButton"], [data-testid="stSidebarCollapseButton"] { display:flex !important; visibility:visible !important; z-index:1000; }
+[data-testid="stExpandSidebarButton"] button, [data-testid="stSidebarCollapseButton"] button { color:${muted} !important; }
 .stApp, [data-testid="stAppViewContainer"] { background:${bg}; }
-[data-testid="stMain"] .block-container, .block-container { max-width:100% !important; padding:0.6rem 2.2rem 3rem !important; }
+[data-testid="stMain"] .block-container, .block-container { max-width:100% !important; padding:0.9rem 2.2rem 3rem !important; }
 .stApp, .block-container, p, span, div, h1, h2, h3 { color:${text}; }
 a { text-decoration:none; }
+button:focus, button:focus-visible, .stButton > button:focus, .stButton > button:active { outline:none !important; box-shadow:none !important; }
 [data-testid="stSidebar"] { background:${sidebar}; border-right:1px solid ${border}; }
-[data-testid="stSidebar"] .block-container { padding-top:1rem; }
-[data-testid="stSidebar"] .stButton > button { background:transparent; color:${text}; border:1px solid ${border};
-  border-radius:9px; font-size:13px; font-weight:600; text-align:left; justify-content:flex-start; padding:7px 12px; }
-[data-testid="stSidebar"] .stButton > button:hover { border-color:${accent}; color:${accent}; }
-[data-testid="stSidebar"] .stButton > button[kind="primary"] { background:${accent}1f; border-color:${accent}80; color:${accent}; }
+[data-testid="stSidebar"] .block-container { padding-top:0.9rem; }
+[data-testid="stSidebar"] .stButton > button { background:transparent; color:${text}; border:none;
+  border-radius:9px; font-size:13px; font-weight:600; text-align:left; justify-content:flex-start; padding:8px 12px; }
+[data-testid="stSidebar"] .stButton > button:hover { background:${chip_bg}; color:${accent}; }
+[data-testid="stSidebar"] .stButton > button[kind="primary"] { background:${accent}1f; color:${accent}; }
 
 .vl-top { display:flex; align-items:center; justify-content:space-between; gap:1rem;
   padding:.2rem 0 .8rem; border-bottom:1px solid ${border}; margin-bottom:1.1rem; }
 .vl-tt { font-size:15px; font-weight:600; color:${text}; }
 .vl-tt .s { color:${muted}; font-weight:400; font-size:13px; margin-left:.5rem; }
 .vl-ctas { display:flex; gap:.5rem; flex-shrink:0; }
-.vl-btn { font-size:13px; font-weight:600; border-radius:8px; padding:8px 14px; white-space:nowrap; }
-.vl-btn.primary { background:${accent}26; border:1px solid ${accent}80; color:${accent}; }
-.vl-btn.ghost { background:${pill_bg}; border:1px solid ${pill_bd}; color:${text}; }
+.vl-btn { font-size:13px; font-weight:600; border-radius:8px; padding:8px 14px; white-space:nowrap; border:none; }
+.vl-btn.primary { background:${accent}26; color:${accent}; }
+.vl-btn.ghost { background:${chip_bg}; color:${text}; }
 
-.vl-side-brand { display:flex; align-items:center; gap:.55rem; padding:.2rem .1rem 1rem; }
+.vl-side-brand { display:flex; align-items:center; gap:.55rem; padding:.15rem .1rem .9rem; min-height:34px; }
 .vl-wordmark { font-size:18px; font-weight:700; letter-spacing:-0.4px; color:${text}; }
 .vl-wordmark em { font-style:normal; color:${accent}; }
 .vl-pill { display:inline-flex; border:1px solid ${pill_bd}; background:${pill_bg}; border-radius:5px; padding:1px 5px;
@@ -195,7 +199,7 @@ a { text-decoration:none; }
 .vl-cta { border-radius:14px; border:1px solid ${border}; background:${card}; padding:1.9rem 1.6rem; text-align:center; margin-top:1.8rem; }
 .vl-cta-t { font-size:21px; font-weight:700; color:${text}; margin:0 0 .45rem; }
 .vl-cta-s { font-size:13.5px; color:${muted}; margin:0 auto 1.2rem; max-width:34rem; line-height:1.5; }
-.vl-cta-b { display:inline-flex; align-items:center; gap:6px; border-radius:9px; border:1px solid ${accent}80;
+.vl-cta-b { display:inline-flex; align-items:center; gap:6px; border-radius:9px; border:none;
   background:${accent}26; color:${accent}; font-size:14px; font-weight:700; padding:11px 22px; }
 .vl-gs { border-radius:14px; border:1px solid ${border}; background:${hero}; padding:1.6rem 1.8rem; box-shadow:${shadow}; }
 .vl-gs h3 { font-size:16px; color:${text}; margin:1.2rem 0 .4rem; }
@@ -513,7 +517,8 @@ GETTING_STARTED = (
 
 # ── page ─────────────────────────────────────────────────────────────────────
 _ICON = "assets/aura-logo.svg"
-st.set_page_config(page_title="Open Aura", page_icon=_ICON if os.path.exists(_ICON) else "✨", layout="wide")
+st.set_page_config(page_title="Open Aura", page_icon=_ICON if os.path.exists(_ICON) else "✨",
+                   layout="wide", initial_sidebar_state="expanded")
 
 ss = st.session_state
 ss.setdefault("view", "profile")
