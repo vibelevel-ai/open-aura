@@ -1,11 +1,12 @@
 """Open Aura — local profile viewer, styled after the VibeLevel Aura profile page.
 
-A read-only dashboard for the local-first OSS edition. It reads your scored
+Read-only dashboard for the local-first OSS edition. It reads your scored
 sessions straight from local Postgres (reusing the same `build_profile`
 aggregation the MCP server uses — no scoring, no writes) and renders them with
-the VibeLevel Aura look: the hero score block, insight cards, dimension bars,
-and a session feed. CTAs funnel to vibelevel.ai to sign up, share, and get on
-the leaderboard — none of which the local edition does on its own.
+the VibeLevel Aura look: a sidebar (Profile · Getting started · Leaderboard ·
+your recent sessions), the hero score block, flip-able insight cards, dimension
+bars, and a read-only pull of the hosted leaderboard. CTAs funnel to
+vibelevel.ai to sign up, share, and get on the leaderboard.
 
 Run as part of the stack (`docker compose up`) → http://localhost:3000, or
 bare-metal: `streamlit run streamlit_app.py`.
@@ -16,6 +17,8 @@ import asyncio
 import html
 import json
 import os
+import urllib.request
+from string import Template
 
 import streamlit as st
 from dotenv import load_dotenv
@@ -28,34 +31,10 @@ from src.core.database_sync import get_conn_with_retry  # noqa: E402
 from src.services.aura.aura_profile import build_profile  # noqa: E402
 
 USER_ID = os.environ.get("AURA_LOCAL_USER_ID", "local")
-
-# Funnel targets — the local edition has no account/leaderboard of its own.
 SITE = os.environ.get("AURA_PUBLIC_WEB_URL", "https://vibelevel.ai").rstrip("/")
 SIGNUP_URL = f"{SITE}/login?persona=builder&source=aura-oss"
-LEADERBOARD_URL = f"{SITE}/aura"
-
-# Palette (lifted from the frontend's --vibecoder-* theme).
-ACCENT = "#00e676"
-BLUE = "#7dd3fc"
-AMBER = "#f59e0b"
-RED = "#ef4444"
-MUTED = "#8899aa"
-
-LEVEL_COLORS = {"Emerging": "#6b7280", "Capable": ACCENT, "Strong": ACCENT, "Exceptional": BLUE}
-
-DIM_ORDER = ["prompting", "ai_pairing", "product_thinking", "design_thinking", "human_contribution"]
-DIM_LABELS = {
-    "prompting": "PROMPTING",
-    "ai_pairing": "AI COLLABORATION",
-    "product_thinking": "PRODUCT THINKING",
-    "design_thinking": "DESIGN SENSE",
-    "human_contribution": "YOU VS AI",
-}
-SOURCE_LABELS = {
-    "claude_code": "Claude Code", "cursor": "Cursor", "codex": "Codex",
-    "windsurf": "Windsurf", "gemini_cli": "Gemini CLI", "vscode": "VS Code",
-    "claude_desktop": "Claude Desktop", "claude_ai": "Claude", "chatgpt": "ChatGPT", "web": "Web",
-}
+LEADERBOARD_WEB = f"{SITE}/aura"
+LEADERBOARD_API = os.environ.get("AURA_LEADERBOARD_API", f"{SITE}/api/aura/leaderboard")
 
 LOGO_SVG = (
     '<svg viewBox="0 0 28 28" fill="none" width="26" height="26" style="flex-shrink:0">'
@@ -65,111 +44,167 @@ LOGO_SVG = (
     '<path d="M18 13L21 22L14 17L18 13Z" fill="#00e676" opacity="0.7"/></svg>'
 )
 
-CSS = """
+DIM_ORDER = ["prompting", "ai_pairing", "product_thinking", "design_thinking", "human_contribution"]
+DIM_LABELS = {
+    "prompting": "PROMPTING", "ai_pairing": "AI COLLABORATION", "product_thinking": "PRODUCT THINKING",
+    "design_thinking": "DESIGN SENSE", "human_contribution": "YOU VS AI",
+}
+SOURCE_LABELS = {
+    "claude_code": "Claude Code", "cursor": "Cursor", "codex": "Codex", "windsurf": "Windsurf",
+    "gemini_cli": "Gemini CLI", "vscode": "VS Code", "claude_desktop": "Claude Desktop",
+    "claude_ai": "Claude", "chatgpt": "ChatGPT", "web": "Web",
+}
+# Short "what this measures" lines for the card flip-side (generic fallback below).
+CARD_GUIDE = {
+    "prompt_length": "Average words per prompt — terse directives vs. detailed context.",
+    "redirect_rate": "How often you course-correct the AI mid-task.",
+    "plan_ratio": "Share of sessions where you planned before building.",
+    "time_of_day": "When your sessions tend to happen.",
+    "politeness": "Pleasantries to the agent — purely for fun, not scored.",
+    "token_footprint": "Total tokens exchanged — your session's footprint.",
+    "human_token_share": "How much you wrote vs. the AI.",
+    "tools_used": "The spread of tools you reached for.",
+    "model_mix": "Which model you leaned on most.",
+    "lifecycle": "Whether you took the work through to a shipped outcome.",
+    "top_dimension": "Your strongest dimension this profile.",
+    "go_to_phrase": "The phrase you open sessions with.",
+    "signature": "Your signature move across sessions.",
+    "growth_edge": "The dimension with the most room to grow.",
+}
+
+PALETTES = {
+    "dark": {
+        "bg": "#0a0e17", "hero": "rgba(13,18,30,0.97)", "card": "rgba(14,20,33,0.85)",
+        "text": "#f0f2f5", "muted": "#8899aa", "accent": "#00e676",
+        "border": "rgba(255,255,255,0.08)", "line": "rgba(139,146,184,0.14)",
+        "chip_bg": "rgba(139,146,184,0.06)", "chip_bd": "rgba(139,146,184,0.18)",
+        "track": "rgba(139,146,184,0.15)", "sidebar": "#0c111c", "shadow": "0 8px 40px rgba(0,0,0,0.45)",
+        "pill_bg": "rgba(255,255,255,0.12)", "pill_bd": "rgba(255,255,255,0.35)", "glow": "rgba(255,255,255,0.05)",
+        "green": "#00e676", "blue": "#7dd3fc", "amber": "#f59e0b", "red": "#ef4444", "gray": "#6b7280",
+    },
+    "light": {
+        "bg": "#f4f7fb", "hero": "#ffffff", "card": "#ffffff",
+        "text": "#0f1722", "muted": "#5b6b7d", "accent": "#06a24a",
+        "border": "#e2e8f0", "line": "#e8edf3",
+        "chip_bg": "#eef2f7", "chip_bd": "#d8e0ea",
+        "track": "#e2e8f0", "sidebar": "#ffffff", "shadow": "0 6px 22px rgba(20,40,80,0.07)",
+        "pill_bg": "#eef2f7", "pill_bd": "#cfd9e6", "glow": "rgba(6,162,74,0.05)",
+        "green": "#06a24a", "blue": "#2b8fc4", "amber": "#c5800c", "red": "#d23b3b", "gray": "#8a97a6",
+    },
+}
+
+CSS_TMPL = Template("""
 <style>
-header[data-testid="stHeader"], [data-testid="stToolbar"] { display:none !important; }
+[data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecoration"] { display:none !important; }
 #MainMenu, footer { visibility:hidden; }
-.stApp { background:#0a0e17; }
-.block-container { max-width:1140px; padding:1rem 1.25rem 4rem; }
-:root { --vlm: ui-monospace,'SF Mono',Menlo,Consolas,monospace; }
+.stApp, [data-testid="stAppViewContainer"] { background:${bg}; }
+[data-testid="stMain"] .block-container, .block-container { max-width:100% !important; padding:0.6rem 2.2rem 3rem !important; }
+.stApp, .block-container, p, span, div, h1, h2, h3 { color:${text}; }
 a { text-decoration:none; }
+[data-testid="stSidebar"] { background:${sidebar}; border-right:1px solid ${border}; }
+[data-testid="stSidebar"] .block-container { padding-top:1rem; }
+[data-testid="stSidebar"] .stButton > button { background:transparent; color:${text}; border:1px solid ${border};
+  border-radius:9px; font-size:13px; font-weight:600; text-align:left; justify-content:flex-start; padding:7px 12px; }
+[data-testid="stSidebar"] .stButton > button:hover { border-color:${accent}; color:${accent}; }
+[data-testid="stSidebar"] .stButton > button[kind="primary"] { background:${accent}1f; border-color:${accent}80; color:${accent}; }
 
 .vl-top { display:flex; align-items:center; justify-content:space-between; gap:1rem;
-  padding:.7rem .25rem 1rem; border-bottom:1px solid rgba(255,255,255,0.07); margin-bottom:1.4rem; }
-.vl-brand { display:flex; align-items:center; gap:.6rem; min-width:0; }
-.vl-wordmark { font-size:20px; font-weight:700; letter-spacing:-0.5px; color:#f0f2f5; }
-.vl-wordmark em { font-style:normal; color:#00e676; }
-.vl-pill { display:inline-flex; align-items:center; border:1px solid rgba(255,255,255,0.35);
-  background:rgba(255,255,255,0.12); border-radius:6px; padding:2px 6px; font-size:9px; font-weight:700;
-  text-transform:uppercase; letter-spacing:.12em; color:#fff; }
-.vl-desc { color:#8899aa; font-size:12.5px; margin-left:.55rem; }
-@media (max-width:880px){ .vl-desc{ display:none; } }
+  padding:.2rem 0 .8rem; border-bottom:1px solid ${border}; margin-bottom:1.1rem; }
+.vl-tt { font-size:15px; font-weight:600; color:${text}; }
+.vl-tt .s { color:${muted}; font-weight:400; font-size:13px; margin-left:.5rem; }
 .vl-ctas { display:flex; gap:.5rem; flex-shrink:0; }
-.vl-btn { font-family:var(--vlm); font-size:13px; font-weight:600; border-radius:8px; padding:8px 14px;
-  border:1px solid rgba(255,255,255,0.30); white-space:nowrap; }
-.vl-btn.ghost { background:rgba(255,255,255,0.06); color:#cdd6e0; }
-.vl-btn.ghost:hover { background:rgba(255,255,255,0.12); }
-.vl-btn.primary { background:rgba(0,230,118,0.15); border-color:rgba(0,230,118,0.5); color:#00e676; }
-.vl-btn.primary:hover { background:rgba(0,230,118,0.25); }
+.vl-btn { font-size:13px; font-weight:600; border-radius:8px; padding:8px 14px; white-space:nowrap; }
+.vl-btn.primary { background:${accent}26; border:1px solid ${accent}80; color:${accent}; }
+.vl-btn.ghost { background:${pill_bg}; border:1px solid ${pill_bd}; color:${text}; }
 
-.vl-hero { position:relative; overflow:hidden; border-radius:18px; border:1px solid rgba(255,255,255,0.08);
-  background:rgba(13,18,30,0.97); box-shadow:0 8px 40px rgba(0,0,0,0.45); padding:1.7rem 1.6rem;
-  display:flex; flex-wrap:wrap; gap:1.4rem 2rem; align-items:center; }
+.vl-side-brand { display:flex; align-items:center; gap:.55rem; padding:.2rem .1rem 1rem; }
+.vl-wordmark { font-size:18px; font-weight:700; letter-spacing:-0.4px; color:${text}; }
+.vl-wordmark em { font-style:normal; color:${accent}; }
+.vl-pill { display:inline-flex; border:1px solid ${pill_bd}; background:${pill_bg}; border-radius:5px; padding:1px 5px;
+  font-size:8px; font-weight:700; text-transform:uppercase; letter-spacing:.12em; color:${text}; }
+.vl-side-h { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.14em; color:${muted};
+  margin:1.1rem .2rem .5rem; }
+
+.vl-hero { position:relative; overflow:hidden; border-radius:18px; border:1px solid ${border};
+  background:${hero}; box-shadow:${shadow}; padding:1.7rem 1.7rem; display:flex; flex-wrap:wrap; gap:1.4rem 2.2rem; align-items:center; }
 .vl-hero::before { content:""; position:absolute; right:-90px; top:-110px; height:300px; width:300px;
-  border-radius:50%; background:rgba(255,255,255,0.05); filter:blur(60px); pointer-events:none; }
-.vl-id { display:flex; flex-direction:column; gap:.7rem; min-width:240px; flex:1; }
+  border-radius:50%; background:${glow}; filter:blur(60px); pointer-events:none; }
+.vl-id { display:flex; flex-direction:column; gap:.7rem; min-width:300px; flex:1 1 46%; }
 .vl-id-row { display:flex; align-items:center; gap:.9rem; }
-.vl-avatar { height:54px; width:54px; border-radius:12px; display:flex; align-items:center; justify-content:center;
-  font-family:var(--vlm); font-size:20px; font-weight:700; color:#00e676;
-  border:1px solid rgba(0,230,118,0.35); background:rgba(0,230,118,0.10); flex-shrink:0; }
-.vl-name { font-size:22px; font-weight:700; color:#fff; margin:0; line-height:1.1; }
-.vl-handle { font-family:var(--vlm); font-size:13px; color:#8899aa; margin:3px 0 0; }
-.vl-arch { font-size:15px; font-weight:600; color:#00e676; line-height:1.35; margin:.1rem 0 0; max-width:34rem; }
-.vl-arch .t { font-weight:400; color:#8899aa; }
+.vl-avatar { height:56px; width:56px; border-radius:13px; display:flex; align-items:center; justify-content:center;
+  font-size:21px; font-weight:700; color:${accent}; border:1px solid ${accent}59; background:${accent}1a; flex-shrink:0; }
+.vl-name { font-size:23px; font-weight:700; color:${text}; margin:0; line-height:1.1; }
+.vl-handle { font-size:13px; color:${muted}; margin:3px 0 0; }
+.vl-arch { font-size:15px; font-weight:600; color:${accent}; line-height:1.4; margin:.1rem 0 0; max-width:40rem; }
+.vl-arch .t { font-weight:400; color:${muted}; }
 
-.vl-score { display:flex; flex-direction:column; gap:.7rem; margin-left:auto;
-  border-left:1px solid rgba(139,146,184,0.12); padding-left:2rem; }
-@media (max-width:760px){ .vl-score{ border-left:0; padding-left:0; margin-left:0; } }
-.vl-score-row { display:flex; gap:1.6rem; flex-wrap:wrap; align-items:flex-start; }
-.vl-slabel { font-family:var(--vlm); font-size:12px; font-weight:600; text-transform:uppercase;
-  letter-spacing:.16em; color:#fff; }
-.vl-snum { font-family:var(--vlm); font-size:46px; font-weight:700; line-height:1; color:#00e676; }
-.vl-sden { font-family:var(--vlm); font-size:22px; font-weight:600; color:#8899aa; }
-.vl-vdiv { width:1px; align-self:stretch; background:rgba(139,146,184,0.18); }
+.vl-score { display:flex; flex-direction:column; gap:.8rem; margin-left:auto; flex:1 1 440px; min-width:440px;
+  border-left:1px solid ${line}; padding-left:2.2rem; }
+.vl-score-row { display:flex; gap:2rem; flex-wrap:wrap; align-items:flex-start; }
+.vl-slabel { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.16em; color:${text}; }
+.vl-snum { font-size:54px; font-weight:800; line-height:1; color:${accent}; letter-spacing:-1px; }
+.vl-sden { font-size:24px; font-weight:600; color:${muted}; }
+.vl-vdiv { width:1px; align-self:stretch; background:${line}; }
 .vl-badges { display:flex; gap:.4rem; flex-wrap:wrap; margin-top:.3rem; }
-.vl-badge { display:inline-flex; align-items:center; gap:5px; border-radius:999px; padding:4px 11px;
-  font-family:var(--vlm); font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+.vl-badge { display:inline-flex; align-items:center; gap:5px; border-radius:999px; padding:5px 12px;
+  font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
 .vl-chips { display:grid; grid-template-columns:repeat(auto-fit,minmax(0,1fr)); gap:.5rem; }
-.vl-chip { display:flex; justify-content:center; align-items:center; border-radius:7px;
-  border:1px solid rgba(139,146,184,0.18); background:rgba(139,146,184,0.06); font-family:var(--vlm);
-  font-size:11px; font-weight:500; text-transform:uppercase; letter-spacing:.1em; color:#8899aa; padding:6px 9px; }
-.vl-publish { font-family:var(--vlm); font-size:12px; color:#8899aa; }
-.vl-publish a { color:#00e676; }
+.vl-chip { display:flex; justify-content:center; align-items:center; border-radius:7px; border:1px solid ${chip_bd};
+  background:${chip_bg}; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.09em; color:${muted}; padding:7px 9px; text-align:center; }
+.vl-publish { font-size:12px; color:${muted}; }
+.vl-publish a { color:${accent}; font-weight:600; }
 
-.vl-h2 { font-size:18px; font-weight:600; color:#f0f2f5; margin:1.8rem 0 .9rem; }
-.vl-note { font-family:var(--vlm); font-size:11px; color:#8899aa; opacity:.85; margin-top:.9rem; }
+.vl-h2 { font-size:18px; font-weight:700; color:${text}; margin:1.7rem 0 .9rem; }
+.vl-note { font-size:11px; color:${muted}; opacity:.9; margin-top:.9rem; }
 
-.vl-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(232px,1fr)); gap:.8rem; }
-.vl-card { border-radius:13px; background:rgba(14,20,33,0.85); padding:15px 15px 16px; position:relative; overflow:hidden; }
-.vl-card .ln { position:absolute; top:0; left:0; right:0; height:2px; }
-.vl-cat { display:inline-flex; align-items:center; border-radius:6px; padding:3px 8px; font-family:var(--vlm);
-  font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; }
-.vl-q { font-family:var(--vlm); font-size:11px; color:#8899aa; margin:.7rem 0 .2rem; }
-.vl-hl { font-size:16px; font-weight:700; color:#fff; line-height:1.25; margin:0 0 .35rem; }
-.vl-dt { font-size:12.5px; color:#9aa7b6; line-height:1.45; margin:0; }
-.vl-mt { margin-top:.7rem; font-family:var(--vlm); font-size:9px; color:#6b7787; text-transform:uppercase; letter-spacing:.1em; }
+.vl-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(244px,1fr)); gap:.85rem; }
+.vl-flip { perspective:1300px; min-height:214px; }
+.vl-inner { position:relative; width:100%; min-height:214px; transition:transform .55s; transform-style:preserve-3d; }
+.vl-flip:hover .vl-inner { transform:rotateY(180deg); }
+.vl-face { position:absolute; inset:0; -webkit-backface-visibility:hidden; backface-visibility:hidden;
+  border-radius:13px; background:${card}; padding:15px 15px 16px; overflow:hidden; display:flex; flex-direction:column; }
+.vl-back { transform:rotateY(180deg); gap:.45rem; }
+.vl-ln { position:absolute; top:0; left:0; right:0; height:2px; }
+.vl-cat { display:inline-flex; align-self:flex-start; border-radius:6px; padding:3px 8px; font-size:9px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.1em; }
+.vl-q { font-size:11px; color:${muted}; margin:.65rem 0 .2rem; }
+.vl-hl { font-size:16px; font-weight:700; color:${text}; line-height:1.25; margin:0 0 .35rem; }
+.vl-dt { font-size:12.5px; color:${muted}; line-height:1.45; margin:0; }
+.vl-mt { margin-top:auto; padding-top:.5rem; font-size:9px; color:${muted}; opacity:.8; text-transform:uppercase; letter-spacing:.1em; }
 
-.vl-dims { display:grid; grid-template-columns:repeat(auto-fit,minmax(290px,1fr)); gap:.7rem; }
-.vl-dim { border-radius:10px; border:1px solid rgba(139,146,184,0.12); background:rgba(139,146,184,0.03); padding:13px 14px; }
+.vl-dims { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:.7rem; }
+.vl-dim { border-radius:10px; border:1px solid ${line}; background:${card}; padding:13px 15px; }
 .vl-dtop { display:flex; justify-content:space-between; align-items:center; }
-.vl-dlabel { font-family:var(--vlm); font-size:11px; font-weight:500; text-transform:uppercase; letter-spacing:.12em; color:#8899aa; }
-.vl-dscore { font-family:var(--vlm); font-size:14px; font-weight:700; }
-.vl-track { margin-top:11px; height:8px; border-radius:999px; background:rgba(139,146,184,0.15); overflow:hidden; }
+.vl-dlabel { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.12em; color:${muted}; }
+.vl-dscore { font-size:15px; font-weight:800; }
+.vl-track { margin-top:11px; height:8px; border-radius:999px; background:${track}; overflow:hidden; }
 .vl-fill { height:100%; border-radius:999px; }
-.vl-tele { color:#00e676; font-family:var(--vlm); font-size:10px; letter-spacing:.12em; text-transform:uppercase; }
+.vl-tele { color:${accent}; font-size:10px; letter-spacing:.12em; text-transform:uppercase; font-weight:700; }
 .vl-ug { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:11px; }
-.vl-un { font-family:var(--vlm); font-size:14px; font-weight:700; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.vl-ul { font-family:var(--vlm); font-size:9px; color:#8899aa; text-transform:uppercase; letter-spacing:.1em; margin-top:3px; }
+.vl-un { font-size:14px; font-weight:800; color:${text}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.vl-ul { font-size:9px; color:${muted}; text-transform:uppercase; letter-spacing:.1em; margin-top:3px; }
 
-.vl-srow { display:flex; align-items:center; gap:.85rem; border-radius:12px; border:1px solid rgba(255,255,255,0.07);
-  background:rgba(14,20,33,0.85); padding:11px 14px; margin-bottom:.5rem; }
-.vl-sicon { height:32px; width:32px; border-radius:9px; display:flex; align-items:center; justify-content:center;
-  border:1px solid rgba(139,146,184,0.18); background:rgba(0,230,118,0.08); color:#00e676; font-size:13px;
-  font-family:var(--vlm); flex-shrink:0; }
-.vl-stitle { font-size:13.5px; font-weight:500; color:#e6ebf1; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.vl-schips { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
-.vl-sscore { margin-left:auto; font-family:var(--vlm); font-size:19px; font-weight:700; flex-shrink:0; }
+.vl-lb { border-radius:12px; border:1px solid ${border}; background:${hero}; overflow:hidden; }
+.vl-lr { display:flex; align-items:center; gap:1rem; padding:12px 16px; border-top:1px solid ${line}; }
+.vl-lr:first-child { border-top:0; }
+.vl-rank { width:34px; text-align:center; font-size:16px; font-weight:800; color:${muted}; flex-shrink:0; }
+.vl-lname { font-size:14px; font-weight:600; color:${text}; margin:0; }
+.vl-larch { font-size:11px; color:${muted}; margin:2px 0 0; }
+.vl-lscore { margin-left:auto; font-size:18px; font-weight:800; flex-shrink:0; }
 
-.vl-cta { border-radius:14px; border:1px solid rgba(255,255,255,0.07); background:rgba(14,20,33,0.85);
-  padding:1.9rem 1.6rem; text-align:center; margin-top:1.8rem; }
-.vl-cta-t { font-size:21px; font-weight:700; color:#fff; margin:0 0 .45rem; }
-.vl-cta-s { font-size:13.5px; color:#8899aa; margin:0 auto 1.2rem; max-width:32rem; line-height:1.5; }
-.vl-cta-b { display:inline-flex; align-items:center; gap:6px; border-radius:9px; border:1px solid rgba(0,230,118,0.5);
-  background:rgba(0,230,118,0.15); color:#00e676; font-family:var(--vlm); font-size:14px; font-weight:600; padding:11px 20px; }
-.vl-cta-b:hover { background:rgba(0,230,118,0.25); }
-.vl-foot { margin-top:1.6rem; font-family:var(--vlm); font-size:11px; color:#6b7787; text-align:center; }
+.vl-cta { border-radius:14px; border:1px solid ${border}; background:${card}; padding:1.9rem 1.6rem; text-align:center; margin-top:1.8rem; }
+.vl-cta-t { font-size:21px; font-weight:700; color:${text}; margin:0 0 .45rem; }
+.vl-cta-s { font-size:13.5px; color:${muted}; margin:0 auto 1.2rem; max-width:34rem; line-height:1.5; }
+.vl-cta-b { display:inline-flex; align-items:center; gap:6px; border-radius:9px; border:1px solid ${accent}80;
+  background:${accent}26; color:${accent}; font-size:14px; font-weight:700; padding:11px 22px; }
+.vl-gs { border-radius:14px; border:1px solid ${border}; background:${hero}; padding:1.6rem 1.8rem; box-shadow:${shadow}; }
+.vl-gs h3 { font-size:16px; color:${text}; margin:1.2rem 0 .4rem; }
+.vl-gs h3:first-child { margin-top:0; }
+.vl-gs p, .vl-gs li { font-size:13.5px; color:${muted}; line-height:1.6; }
+.vl-gs code { background:${chip_bg}; border:1px solid ${chip_bd}; border-radius:5px; padding:1px 6px; color:${accent}; font-size:12.5px; }
+.vl-foot { margin-top:1.6rem; font-size:11px; color:${muted}; opacity:.7; text-align:center; }
 </style>
-"""
+""")
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -178,14 +213,15 @@ def esc(x) -> str:
 
 
 def score_color(s: float) -> str:
-    if s >= 8: return BLUE
-    if s >= 7: return ACCENT
-    if s >= 4: return AMBER
-    return RED
+    if s >= 8: return P["blue"]
+    if s >= 7: return P["green"]
+    if s >= 4: return P["amber"]
+    return P["red"]
 
 
 def level_color(level: str) -> str:
-    return LEVEL_COLORS.get(level, ACCENT)
+    return {"Emerging": P["gray"], "Capable": P["green"], "Strong": P["green"],
+            "Exceptional": P["blue"]}.get(level, P["accent"])
 
 
 def fmt_tokens(n) -> str:
@@ -210,10 +246,6 @@ def modality_chip(m: str) -> str:
     return "CODING" if m == "coding" else "WRITING"
 
 
-def fmt_date(iso: str) -> str:
-    return (iso or "")[:10]
-
-
 def as_obj(v):
     if isinstance(v, str):
         try: return json.loads(v)
@@ -235,11 +267,8 @@ def load_session_detail(session_id: str) -> dict | None:
     try:
         pool, conn = get_conn_with_retry()
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute(
-            'SELECT id, title, cards, dimension_scores FROM "AuraSession" '
-            "WHERE user_id = %s AND id = %s",
-            (USER_ID, session_id),
-        )
+        cur.execute('SELECT id, title, cards, dimension_scores FROM "AuraSession" '
+                    "WHERE user_id = %s AND id = %s", (USER_ID, session_id))
         row = cur.fetchone()
         cur.close()
         return dict(row) if row else None
@@ -248,28 +277,35 @@ def load_session_detail(session_id: str) -> dict | None:
             pool.putconn(conn)
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def load_leaderboard(limit: int = 20) -> list:
+    """Read-only pull of the hosted, PUBLIC Aura leaderboard. Sends no profile
+    data — only a GET. Returns [] on any error (offline, blocked, etc.)."""
+    url = f"{LEADERBOARD_API}?limit={limit}"
+    req = urllib.request.Request(url, headers={"User-Agent": "open-aura-viewer/1.0", "Accept": "application/json"})
+    with urllib.request.urlopen(req, timeout=8) as r:
+        data = json.loads(r.read().decode("utf-8", "replace"))
+    if isinstance(data, list):
+        return data
+    return data.get("entries") or data.get("leaderboard") or []
+
+
 # ── html builders ────────────────────────────────────────────────────────────
-def header_html() -> str:
-    return (
-        '<div class="vl-top">'
-        '<div class="vl-brand">'
-        f'{LOGO_SVG}'
-        '<span class="vl-wordmark">Vibe<em>Level</em></span>'
-        '<span class="vl-pill">Aura</span>'
-        '<span class="vl-desc">Your AI Aura — how you work with AI, from your real sessions</span>'
-        '</div>'
-        '<div class="vl-ctas">'
-        f'<a class="vl-btn ghost" href="{LEADERBOARD_URL}" target="_blank">Leaderboard ↗</a>'
-        f'<a class="vl-btn primary" href="{SIGNUP_URL}" target="_blank">Sign up ↗</a>'
-        '</div></div>'
-    )
-
-
 def badge(text: str, color: str, icon: str = "") -> str:
     pre = f"{icon} " if icon else ""
+    return (f'<span class="vl-badge" style="color:{color};background:{color}1f;border:1px solid {color}66;">'
+            f'{pre}{esc(text)}</span>')
+
+
+def top_bar_html(title: str, subtitle: str = "") -> str:
+    sub = f'<span class="s">{esc(subtitle)}</span>' if subtitle else ""
     return (
-        f'<span class="vl-badge" style="color:{color};background:{color}1a;border:1px solid {color}66;">'
-        f'{pre}{esc(text)}</span>'
+        '<div class="vl-top">'
+        f'<div class="vl-tt">{esc(title)}{sub}</div>'
+        '<div class="vl-ctas">'
+        f'<a class="vl-btn ghost" href="{LEADERBOARD_WEB}" target="_blank">Leaderboard ↗</a>'
+        f'<a class="vl-btn primary" href="{SIGNUP_URL}" target="_blank">Sign up ↗</a>'
+        '</div></div>'
     )
 
 
@@ -279,8 +315,7 @@ def hero_html(p: dict) -> str:
     show_best = best > 0 and abs(best - avg) > 0.01
     sources = p.get("sources") or {}
     primary = max(sources, key=sources.get) if sources else None
-    sessions = p.get("sessions") or []
-    mods = {s.get("modality") for s in sessions}
+    mods = {s.get("modality") for s in (p.get("sessions") or [])}
     overall_mod = ("CODING + WRITING" if "coding" in mods and (mods - {"coding"})
                    else "CODING" if "coding" in mods else "WRITING" if mods else None)
     total_tokens = (p.get("stats") or {}).get("total_tokens") or 0
@@ -288,19 +323,15 @@ def hero_html(p: dict) -> str:
     handle = p.get("handle")
     handle_html = (f'<p class="vl-handle">{SITE.split("//")[-1]}/u/{esc(handle)}</p>' if handle
                    else '<p class="vl-handle">local profile · not yet published</p>')
-
     arch = esc(p.get("archetype") or "")
     tag = p.get("archetype_tagline")
     arch_html = (f'<p class="vl-arch">{arch}'
-                 + (f'<span class="t"> — {esc(tag)}</span>' if tag else "")
-                 + '</p>') if arch else ""
+                 + (f'<span class="t"> — {esc(tag)}</span>' if tag else "") + '</p>') if arch else ""
 
     badges = ""
     lvl = p.get("aura_level")
-    if lvl:
-        badges += badge(lvl, level_color(lvl))
-    if p.get("ships_it"):
-        badges += badge("Ships it", ACCENT, icon="🚀")
+    if lvl: badges += badge(lvl, level_color(lvl))
+    if p.get("ships_it"): badges += badge("Ships it", P["green"], icon="🚀")
 
     best_block = ""
     if show_best:
@@ -310,8 +341,7 @@ def hero_html(p: dict) -> str:
             '<div style="display:flex;flex-direction:column;gap:.5rem;">'
             '<span class="vl-slabel">Best session</span>'
             f'<div><span class="vl-snum">{best:.1f}</span><span class="vl-sden">/10</span></div>'
-            + (f'<div class="vl-badges">{badge(bl, level_color(bl))}</div>' if bl else "")
-            + '</div>'
+            + (f'<div class="vl-badges">{badge(bl, level_color(bl))}</div>' if bl else "") + '</div>'
         )
 
     chips = [f'{p.get("session_count", 0)} SESSION{"" if p.get("session_count")==1 else "S"}']
@@ -325,75 +355,96 @@ def hero_html(p: dict) -> str:
         '<div class="vl-id">'
         '<div class="vl-id-row">'
         f'<div class="vl-avatar">{esc(initials(p.get("display_name") or ""))}</div>'
-        '<div style="min-width:0;">'
-        f'<p class="vl-name">{esc(p.get("display_name") or "Builder")}</p>'
-        f'{handle_html}'
-        '</div></div>'
-        f'{arch_html}'
+        f'<div style="min-width:0;"><p class="vl-name">{esc(p.get("display_name") or "Builder")}</p>{handle_html}</div>'
         '</div>'
+        f'{arch_html}</div>'
         '<div class="vl-score">'
         '<div class="vl-score-row">'
         '<div style="display:flex;flex-direction:column;gap:.5rem;">'
         '<span class="vl-slabel">Avg of all sessions</span>'
         f'<div><span class="vl-snum">{avg:.1f}</span><span class="vl-sden">/10</span></div>'
-        f'<div class="vl-badges">{badges}</div>'
-        '</div>'
-        f'{best_block}'
-        '</div>'
+        f'<div class="vl-badges">{badges}</div></div>'
+        f'{best_block}</div>'
         f'<div class="vl-chips">{chips_html}</div>'
         f'<div class="vl-publish">🔗 <a href="{SIGNUP_URL}" target="_blank">Publish &amp; share on vibelevel.ai →</a></div>'
         '</div></div>'
     )
 
 
-KLASS = {"credibility": (ACCENT, "Behavioral"), "personality": (BLUE, "Personality")}
+def session_hero_html(s: dict, tokens: int = 0) -> str:
+    score = float(s.get("aura_score") or 0)
+    badges = badge(s.get("aura_level"), level_color(s.get("aura_level"))) if s.get("aura_level") else ""
+    if s.get("ships_it"): badges += badge("Ships it", P["green"], icon="🚀")
+    chips = [x for x in ((s.get("created_at") or "")[:10], pretty_source(s.get("source")),
+                         modality_chip(s.get("modality")), f"{fmt_tokens(tokens)} TOKENS" if tokens else "") if x]
+    chips_html = "".join(f'<span class="vl-chip">{esc(c)}</span>' for c in chips)
+    arch = esc(s.get("archetype") or "")
+    return (
+        '<div class="vl-hero">'
+        '<div class="vl-id">'
+        f'<p class="vl-name" style="font-size:19px;">{esc(s.get("title") or "Untitled session")}</p>'
+        + (f'<p class="vl-arch" style="margin-top:.3rem;">{arch}</p>' if arch else "") +
+        '</div>'
+        '<div class="vl-score">'
+        '<div class="vl-score-row"><div style="display:flex;flex-direction:column;gap:.5rem;">'
+        '<span class="vl-slabel">Session score</span>'
+        f'<div><span class="vl-snum">{score:.1f}</span><span class="vl-sden">/10</span></div>'
+        f'<div class="vl-badges">{badges}</div></div></div>'
+        f'<div class="vl-chips">{chips_html}</div>'
+        '</div></div>'
+    )
+
+
+KLASS = {"credibility": (lambda: P["green"], "Behavioral", "how you steer, plan & verify"),
+         "personality": (lambda: P["blue"], "Personality", "your style & habits")}
 
 
 def insight_card_html(c: dict) -> str:
     if not (c.get("headline") or c.get("detail")):
         return ""
-    accent, label = KLASS.get(c.get("klass"), (ACCENT, "Insight"))
+    acc_fn, label, klass_meaning = KLASS.get(c.get("klass"), (lambda: P["accent"], "Insight", "a signal from your session"))
+    accent = acc_fn()
     mod = c.get("modality")
     modtag = "CODING" if mod == "coding" else "WRITING" if mod == "noncoding" else "BOTH"
     q = f'<p class="vl-q">{esc(c["question"])}</p>' if c.get("question") else ""
     dt = f'<p class="vl-dt">{esc(c["detail"])}</p>' if c.get("detail") else ""
-    return (
-        f'<div class="vl-card" style="border:1px solid {accent}2e;">'
-        f'<div class="ln" style="background:linear-gradient(90deg,{accent}00,{accent}99,{accent}00);"></div>'
+    guide = CARD_GUIDE.get(c.get("id"), "Derived from your session's telemetry &amp; transcript signals — no rubric, no test cases.")
+    front = (
+        f'<div class="vl-face" style="border:1px solid {accent}33;">'
+        f'<div class="vl-ln" style="background:linear-gradient(90deg,{accent}00,{accent}99,{accent}00);"></div>'
         f'<span class="vl-cat" style="color:{accent};background:{accent}1f;border:1px solid {accent}59;">{label}</span>'
-        f'{q}'
-        f'<p class="vl-hl">{esc(c.get("headline") or "")}</p>'
-        f'{dt}'
-        f'<div class="vl-mt">{modtag}</div>'
-        '</div>'
+        f'{q}<p class="vl-hl">{esc(c.get("headline") or "")}</p>{dt}'
+        f'<div class="vl-mt">{modtag} · hover to flip ↻</div></div>'
     )
+    back = (
+        f'<div class="vl-face vl-back" style="border:1px solid {accent}59;background:{accent}0f;">'
+        f'<span class="vl-cat" style="color:{accent};background:{accent}1f;border:1px solid {accent}59;">What this measures</span>'
+        f'<p class="vl-hl" style="font-size:14px;">{esc(c.get("headline") or "")}</p>'
+        f'<p class="vl-dt">{guide}</p>'
+        f'<div class="vl-mt">{esc(label)} — {esc(klass_meaning)}</div></div>'
+    )
+    return f'<div class="vl-flip"><div class="vl-inner">{front}{back}</div></div>'
 
 
 def insights_grid_html(cards: list) -> str:
     items = "".join(insight_card_html(c) for c in cards if c.get("id") != "archetype")
     if not items:
-        return '<div class="vl-card" style="text-align:center;color:#8899aa;">No insights yet.</div>'
+        return '<div class="vl-dim" style="text-align:center;color:#8899aa;">No insights yet.</div>'
     return f'<div class="vl-grid">{items}</div>'
 
 
 def dim_bar_html(label: str, score: float) -> str:
     c = score_color(score)
-    pct = max(0, min(100, score * 10))
     return (
-        '<div class="vl-dim">'
-        '<div class="vl-dtop">'
-        f'<span class="vl-dlabel">{esc(label)}</span>'
-        f'<span class="vl-dscore" style="color:{c}">{score:.1f}</span>'
-        '</div>'
-        f'<div class="vl-track"><div class="vl-fill" style="width:{pct}%;background:{c}"></div></div>'
-        '</div>'
+        '<div class="vl-dim"><div class="vl-dtop">'
+        f'<span class="vl-dlabel">{esc(label)}</span><span class="vl-dscore" style="color:{c}">{score:.1f}</span></div>'
+        f'<div class="vl-track"><div class="vl-fill" style="width:{max(0,min(100,score*10))}%;background:{c}"></div></div></div>'
     )
 
 
 def usage_tile_html(stats: dict) -> str:
     return (
-        '<div class="vl-dim">'
-        '<div class="vl-dtop"><span class="vl-dlabel">Usage</span><span class="vl-tele">Telemetry</span></div>'
+        '<div class="vl-dim"><div class="vl-dtop"><span class="vl-dlabel">Usage</span><span class="vl-tele">Telemetry</span></div>'
         '<div class="vl-ug">'
         f'<div><div class="vl-un">{fmt_tokens(stats.get("avg_tokens_per_session"))}</div><div class="vl-ul">tok/session</div></div>'
         f'<div><div class="vl-un">{float(stats.get("avg_prompts_per_session") or 0):.1f}</div><div class="vl-ul">prompts/sn</div></div>'
@@ -403,106 +454,165 @@ def usage_tile_html(stats: dict) -> str:
 
 
 def dims_grid_html(dim_scores: dict, stats: dict | None) -> str:
-    rows = "".join(
-        dim_bar_html(DIM_LABELS.get(k, k.replace("_", " ").title()), float(dim_scores[k].get("score") or 0))
-        for k in DIM_ORDER if dim_scores.get(k) is not None
-    )
-    # any non-standard dims (e.g. writing modality) after the canonical order
-    rows += "".join(
-        dim_bar_html(DIM_LABELS.get(k, k.replace("_", " ").title()), float((v or {}).get("score") or 0))
-        for k, v in dim_scores.items() if k not in DIM_ORDER
-    )
+    rows = "".join(dim_bar_html(DIM_LABELS.get(k, k.replace("_", " ").title()), float(dim_scores[k].get("score") or 0))
+                   for k in DIM_ORDER if dim_scores.get(k) is not None)
+    rows += "".join(dim_bar_html(DIM_LABELS.get(k, k.replace("_", " ").title()), float((v or {}).get("score") or 0))
+                    for k, v in dim_scores.items() if k not in DIM_ORDER)
     if not rows:
-        return '<div class="vl-card" style="text-align:center;color:#8899aa;">No dimension scores yet.</div>'
+        return '<div class="vl-dim" style="text-align:center;color:#8899aa;">No dimension scores yet.</div>'
     if stats:
         rows += usage_tile_html(stats)
     return f'<div class="vl-dims">{rows}</div>'
 
 
-def session_row_html(s: dict) -> str:
-    coding = s.get("modality") == "coding"
-    score = float(s.get("aura_score") or 0)
-    chips = "".join(
-        f'<span class="vl-chip">{esc(x)}</span>'
-        for x in (pretty_source(s.get("source")), fmt_date(s.get("created_at")), modality_chip(s.get("modality")))
-        if x
-    )
-    return (
-        '<div class="vl-srow">'
-        f'<div class="vl-sicon">{"&lt;/&gt;" if coding else "✎"}</div>'
-        '<div style="min-width:0;flex:1;">'
-        f'<p class="vl-stitle">{esc(s.get("title") or "Untitled session")}</p>'
-        f'<div class="vl-schips">{chips}</div>'
-        '</div>'
-        f'<span class="vl-sscore" style="color:{score_color(score)}">{score:.1f}</span>'
-        '</div>'
-    )
-
-
-def cta_html() -> str:
+def cta_html(title: str, sub: str) -> str:
     return (
         '<div class="vl-cta">'
-        '<p class="vl-cta-t">Get on the leaderboard</p>'
-        '<p class="vl-cta-s">This Aura lives only on your machine. Sign up at VibeLevel to claim a handle, '
-        'share your profile, and rank against other builders.</p>'
-        f'<a class="vl-cta-b" href="{SIGNUP_URL}" target="_blank">Reveal your Aura on vibelevel.ai →</a>'
-        '</div>'
+        f'<p class="vl-cta-t">{esc(title)}</p><p class="vl-cta-s">{esc(sub)}</p>'
+        f'<a class="vl-cta-b" href="{SIGNUP_URL}" target="_blank">Reveal your Aura on vibelevel.ai →</a></div>'
     )
+
+
+def leaderboard_html(entries: list) -> str:
+    medals = {1: "🥇", 2: "🥈", 3: "🥉"}
+    rows = ""
+    for e in entries:
+        rank = e.get("rank") or 0
+        name = e.get("handle") or e.get("display_name") or "—"
+        score = float(e.get("aura_score") or e.get("avg_aura_score") or 0)
+        href = f'{SITE}/u/{e.get("handle")}' if e.get("handle") else SITE
+        sub = " · ".join(x for x in [esc(e.get("archetype") or ""),
+              f'{e.get("session_count")} sessions' if e.get("session_count") else ""] if x)
+        rows += (
+            '<div class="vl-lr">'
+            f'<div class="vl-rank">{medals.get(rank, rank)}</div>'
+            f'<div style="min-width:0;flex:1;"><a class="vl-lname" href="{href}" target="_blank">{esc(name)}</a>'
+            f'<p class="vl-larch">{sub}</p></div>'
+            f'<span class="vl-lscore" style="color:{level_color(e.get("aura_level"))}">{score:.1f}</span></div>'
+        )
+    return f'<div class="vl-lb">{rows}</div>'
+
+
+GETTING_STARTED = (
+    '<div class="vl-gs">'
+    '<h3>1 · Start the stack</h3>'
+    '<p><code>docker compose up</code> — Postgres + the app (MCP server on <code>:8090</code>, this viewer on <code>:3000</code>). '
+    'Set one provider key in <code>.env</code> (e.g. <code>GROQ_API_KEY</code>) so scoring can run.</p>'
+    '<h3>2 · Connect your agent</h3>'
+    '<p>Point your MCP client (Claude Code, Cursor, Claude Desktop…) at the local server — no auth in local mode:</p>'
+    '<p><code>{ "mcpServers": { "aura": { "url": "http://localhost:8090/mcp" } } }</code></p>'
+    '<h3>3 · Score a session</h3>'
+    '<p>After a real piece of work, ask your agent: <b>“score this session with Aura.”</b> '
+    'It sends a redacted evidence packet (truncated excerpts + file metadata — never raw code) and your profile appears here.</p>'
+    '<h3>4 · Go public (optional)</h3>'
+    '<p>This Aura lives only on your machine. Sign up at VibeLevel to claim a handle, share your profile, '
+    'and get on the leaderboard.</p>'
+    '</div>'
+)
 
 
 # ── page ─────────────────────────────────────────────────────────────────────
-st.set_page_config(page_title="Open Aura", page_icon="✨", layout="wide")
-render(CSS)
-render(header_html())
+_ICON = "assets/aura-logo.svg"
+st.set_page_config(page_title="Open Aura", page_icon=_ICON if os.path.exists(_ICON) else "✨", layout="wide")
+
+ss = st.session_state
+ss.setdefault("view", "profile")
+ss.setdefault("session_id", None)
+ss.setdefault("theme", "dark")
 
 try:
     profile = load_profile()
 except Exception as e:  # noqa: BLE001
+    P = PALETTES["dark"]
+    render(CSS_TMPL.substitute(P))
     st.error(f"Couldn't load your profile from local Postgres: {e}")
     st.caption("Is the database up and POSTGRES_URL set? In Docker: `docker compose up`.")
     st.stop()
 
-if int(profile.get("session_count") or 0) == 0:
-    render(
-        '<div class="vl-hero" style="display:block;text-align:center;">'
-        '<div class="vl-avatar" style="margin:0 auto .9rem;">?</div>'
-        '<p class="vl-name">No Aura yet</p>'
-        '<p class="vl-arch" style="max-width:none;margin-top:.5rem;">'
-        '<span class="t">Connect your agent to the Aura MCP server '
-        '(<code>http://localhost:8090/mcp</code>) and ask it to “score this session with Aura.”</span></p>'
-        '</div>'
-    )
-    render(cta_html())
-    st.stop()
-
-render(hero_html(profile))
-
-render('<div class="vl-h2">Insights</div>')
-render(insights_grid_html(profile.get("cards") or []))
-render('<p class="vl-note">Behavioral (green) = how you steer, plan &amp; verify · '
-       'Personality (ice blue) = style &amp; habits</p>')
-
-render('<div class="vl-h2">Dimensions</div>')
-render(dims_grid_html(profile.get("dimension_scores") or {}, profile.get("stats")))
-
-render('<div class="vl-h2">Recent sessions</div>')
 sessions = profile.get("sessions") or []
-render("".join(session_row_html(s) for s in sessions[:8]))
 
-# Per-session report (cards + dimension breakdown), reusing the same builders.
-if sessions:
-    labels = {f'{fmt_date(s.get("created_at"))} · {s.get("title") or s.get("id")}': s for s in sessions}
-    choice = st.selectbox("Open a session report", ["—"] + list(labels.keys()))
-    if choice and choice != "—":
-        s = labels[choice]
-        detail = load_session_detail(s["id"])
-        if detail:
-            render(f'<div class="vl-h2">Session report — {esc(s.get("title") or "")}</div>')
-            dims = as_obj(detail.get("dimension_scores")) or {}
-            if dims:
-                render(dims_grid_html(dims, None))
-            cards = as_obj(detail.get("cards")) or []
-            render(insights_grid_html(cards))
+# ── sidebar (sets view / session / theme before CSS is chosen) ──
+with st.sidebar:
+    render('<div class="vl-side-brand">' + LOGO_SVG
+           + '<span class="vl-wordmark">Vibe<em>Level</em></span><span class="vl-pill">Aura</span></div>')
+    if st.button(("☀️  Light mode" if ss.theme == "dark" else "🌙  Dark mode"), key="theme_btn", use_container_width=True):
+        ss.theme = "light" if ss.theme == "dark" else "dark"
+        st.rerun()
+    render('<div class="vl-side-h">Navigate</div>')
+    for label, view in [("📊  Profile", "profile"), ("🚀  Getting started", "getting_started"), ("🏆  Leaderboard", "leaderboard")]:
+        if st.button(label, key=f"nav_{view}", use_container_width=True,
+                     type="primary" if ss.view == view else "secondary"):
+            ss.view, ss.session_id = view, None
+    if sessions:
+        render('<div class="vl-side-h">Recent sessions</div>')
+        for s in sessions[:12]:
+            lab = f'{(s.get("created_at") or "")[:10]} · {(s.get("title") or "Untitled")[:26]}'
+            if st.button(lab, key=f"sess_{s['id']}", use_container_width=True,
+                         type="primary" if (ss.view == "session" and ss.session_id == s["id"]) else "secondary"):
+                ss.view, ss.session_id = "session", s["id"]
 
-render(cta_html())
+P = PALETTES.get(ss.theme, PALETTES["dark"])
+render(CSS_TMPL.substitute(P))
+
+# ── main ──
+if ss.view == "getting_started":
+    render(top_bar_html("Getting started", "Connect an agent and score your first session"))
+    render(GETTING_STARTED)
+    render(cta_html("Get on the leaderboard",
+                    "Sign up at VibeLevel to claim a handle, share your profile, and rank against other builders."))
+
+elif ss.view == "leaderboard":
+    render(top_bar_html("Aura leaderboard", "Live, read-only — top builders on VibeLevel"))
+    try:
+        entries = load_leaderboard(20)
+    except Exception:
+        entries = None
+    if entries:
+        render(leaderboard_html(entries))
+    elif entries == []:
+        render('<div class="vl-dim" style="text-align:center;color:#8899aa;">The leaderboard is empty right now.</div>')
+    else:
+        render('<div class="vl-dim" style="text-align:center;color:#8899aa;">'
+               'Couldn\'t reach the live leaderboard from here. It lives at vibelevel.ai.</div>')
+    render(cta_html("Join the leaderboard",
+                    "This profile is local. Publish your Aura on VibeLevel to appear here and rank against other builders."))
+
+elif ss.view == "session" and ss.session_id:
+    summary = next((s for s in sessions if s["id"] == ss.session_id), None)
+    detail = load_session_detail(ss.session_id) if summary else None
+    if not summary or not detail:
+        render(top_bar_html("Session", ""))
+        st.info("That session couldn't be loaded. Pick another from the sidebar.")
+    else:
+        cards = as_obj(detail.get("cards")) or []
+        tokens = next((c.get("stat", {}).get("tokens", 0) for c in cards if c.get("id") == "token_footprint"), 0)
+        render(top_bar_html("Session report", summary.get("title") or ""))
+        render(session_hero_html(summary, tokens))
+        dims = as_obj(detail.get("dimension_scores")) or {}
+        if dims:
+            render('<div class="vl-h2">Dimensions</div>')
+            render(dims_grid_html(dims, None))
+        render('<div class="vl-h2">Insights</div>')
+        render(insights_grid_html(cards))
+
+else:  # profile
+    if int(profile.get("session_count") or 0) == 0:
+        render(top_bar_html("Your Aura", "No scored sessions yet"))
+        render('<div class="vl-hero" style="display:block;text-align:center;">'
+               '<div class="vl-avatar" style="margin:0 auto .9rem;">?</div>'
+               '<p class="vl-name">No Aura yet</p>'
+               '<p class="vl-arch" style="max-width:none;margin-top:.5rem;"><span class="t">Connect your agent to the Aura MCP '
+               'server (<code>http://localhost:8090/mcp</code>) and ask it to “score this session with Aura.”</span></p></div>')
+        render(cta_html("Get on the leaderboard",
+                        "Sign up at VibeLevel to claim a handle, share your profile, and rank against other builders."))
+    else:
+        render(top_bar_html("Your Aura", "How you work with AI, from your real sessions"))
+        render(hero_html(profile))
+        render('<div class="vl-h2">Insights</div>')
+        render(insights_grid_html(profile.get("cards") or []))
+        render('<p class="vl-note">Behavioral (green) = how you steer, plan &amp; verify · '
+               'Personality (ice blue) = style &amp; habits · hover a card to flip it</p>')
+        render('<div class="vl-h2">Dimensions</div>')
+        render(dims_grid_html(profile.get("dimension_scores") or {}, profile.get("stats")))
+
 render('<div class="vl-foot">Open Aura · local, read-only viewer — nothing is scored or written here.</div>')

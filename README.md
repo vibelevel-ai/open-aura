@@ -30,7 +30,7 @@ Then, after a piece of work, ask your agent to **"score this session with Aura."
 
 ### Local viewer
 
-A lightweight, **read-only** Streamlit dashboard is built into the stack — the app container runs it alongside the MCP server. After `docker compose up`, open **http://localhost:3000** for your Aura score, per-dimension scores, insight cards, and a session-by-session breakdown. It reads your local Postgres and reuses the exact aggregation the MCP server uses — it never scores or writes anything.
+A lightweight, **read-only** Streamlit dashboard is built into the stack — the app container runs it alongside the MCP server. After `docker compose up`, open **http://localhost:3000**. Styled after the VibeLevel Aura profile, with a sidebar (Profile · Getting started · Leaderboard · your recent sessions), the hero score block, flip-able insight cards, dimension bars, a light/dark toggle, and a read-only pull of the public leaderboard. It reads your local Postgres and reuses the exact aggregation the MCP server uses — it never scores or writes anything.
 
 ## What it measures
 
@@ -38,7 +38,7 @@ A referenceless read of your **process** — no rubric, no test cases — across
 
 ## Privacy
 
-The redaction contract is the whole point: **raw transcripts and file contents never leave your machine.** The agent sends only truncated text excerpts and file *paths/metadata*. In the default local mode everything stays in your local Postgres — there is no network call out of Open Aura at all.
+The redaction contract is the whole point: **raw transcripts and file contents never leave your machine.** The agent sends only truncated text excerpts and file *paths/metadata*. In local mode the scoring and profile paths make **no outbound calls** — everything stays in your local Postgres. (The only exception is the viewer's optional **Leaderboard** tab, which does a plain read-only `GET` of the public leaderboard from vibelevel.ai — it sends none of your data.)
 
 ## Configuration
 
