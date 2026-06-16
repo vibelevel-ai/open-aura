@@ -1,9 +1,7 @@
 // @vibelevel/aura-ui — public entry point.
 //
-// The presentational, auth-free viewer UI for Open Aura (the local-first
-// edition). Originally extracted from the VibeLevel SaaS; the SaaS keeps its
-// own copy. Components fetch from RELATIVE `/api/aura/*` URLs — the host app
-// must provide that API.
+// The presentational, auth-free viewer UI for Open Aura. Components fetch from
+// RELATIVE `/api/aura/*` URLs — the host app must provide that API.
 // Import the theme once in your host app: `@vibelevel/aura-ui/styles/aura-theme.css`.
 
 // ── Primary public surface ────────────────────────────────────────────────

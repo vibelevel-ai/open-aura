@@ -1,10 +1,10 @@
 # Open Aura
 
-**The open-source, local-first edition of VibeLevel Aura — turn your real AI coding sessions into a scored builder profile, entirely on your own machine.**
+**Open-source, local-first: turn your real AI coding sessions into a scored builder profile, entirely on your own machine.**
 
 Open Aura is an [MCP](https://modelcontextprotocol.io) server your agent (Claude Code, Cursor, Claude Desktop, …) connects to. After a session, the agent sends a **redacted evidence packet** — truncated snippets + file metadata, never raw code or prompts — and Open Aura scores how you worked *with* the AI and stores it in your **local Postgres**. No login, no account, nothing leaves your machine.
 
-> Same scoring engine as hosted [Aura](https://github.com/vibelevel-ai/aura). The hosted edition adds the shared leaderboard, public profiles, and team insights; this repo is the local core, and the methodology is open for the community to shape.
+> Want a public profile, the shared leaderboard, and team insights? Those live in the hosted edition at [vibelevel.ai](https://www.vibelevel.ai).
 
 ---
 
@@ -60,7 +60,7 @@ The redaction contract is the whole point: **raw transcripts and file contents n
 
 ## Contributing
 
-The scoring methodology is meant to be community-shaped — PRs to the rubric and signal extraction are welcome. Join the discussion via the Discord linked from [vibelevel-ai/aura](https://github.com/vibelevel-ai/aura).
+Issues and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
