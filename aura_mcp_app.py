@@ -175,7 +175,14 @@ def create_app() -> FastAPI:
             "version": app.version,
             "mcp": _MOUNT_PATH,
             "health": "/health",
+            "api": "/api/aura",
         }
+
+    # REST endpoints for the web viewer (profile / session / leaderboard). Same
+    # contract the hosted SaaS serves; the shared Aura UI consumes it.
+    from src.api.aura_endpoints import router as aura_router
+
+    app.include_router(aura_router, prefix="/api/aura")
 
     # Header-config clients like Claude Code / Cursor send the PAT directly, and
     # local mode needs no auth.
