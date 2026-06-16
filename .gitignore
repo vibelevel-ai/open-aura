@@ -11,5 +11,13 @@ venv/
 *.egg-info/
 .pytest_cache/
 
+# node / next (web viewer host + shared package)
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+npm-debug.log*
+
 # os
 .DS_Store

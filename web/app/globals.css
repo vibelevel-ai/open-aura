@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base radius for the shadcn primitives (the dark token values come from the
+   .vibecoder-ide scope in @vibelevel/aura-ui/styles/aura-theme.css, which
+   PublicAuraShell applies around the page). */
+:root {
+  --radius: 0.5rem;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--vibecoder-bg);
+  color: var(--vibecoder-text-primary);
+}
