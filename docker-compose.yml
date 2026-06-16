@@ -3,8 +3,10 @@
 #   2. docker compose up
 #   3. backend (MCP) -> http://localhost:8090/mcp   (point your agent here; no auth)
 #      viewer  (UI)  -> http://localhost:3000
+# Service names match the container names (aura-db / aura-app), so targeting one
+# service works as you'd expect: `docker compose up aura-app`.
 services:
-  db:
+  aura-db:
     image: postgres:16-alpine
     container_name: aura-db
     environment:
@@ -23,16 +25,16 @@ services:
 
   # Single app container: the MCP server (8090) + the read-only Streamlit viewer
   # (3000), run side by side via honcho (see Procfile).
-  app:
+  aura-app:
     build: .
     container_name: aura-app
     depends_on:
-      db:
+      aura-db:
         condition: service_healthy
     environment:
       APP_ENV: local
       AURA_LOCAL_MODE: "true"
-      POSTGRES_URL: postgresql://aura:aura@db:5432/aura
+      POSTGRES_URL: postgresql://aura:aura@aura-db:5432/aura
       AURA_MCP_PORT: "8090"
       AURA_SCORING_MODEL: ${AURA_SCORING_MODEL:-openai/gpt-oss-120b}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
