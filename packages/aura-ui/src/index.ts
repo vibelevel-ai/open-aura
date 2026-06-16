@@ -16,6 +16,13 @@ export { InsightCard, InsightCardGrid } from './components/aura/insight-card';
 export { AuraGuide } from './components/aura/aura-guide';
 export { VibeLevelLogo } from './components/vibelevel-logo';
 
+// ── Edition config (SaaS vs OSS funnel differences) ───────────────────────
+export {
+  type AuraViewerConfig,
+  DEFAULT_VIEWER_CONFIG,
+  resolveViewerConfig,
+} from './lib/aura/viewer-config';
+
 // ── Public data types (mirror the backend Aura contracts) ──────────────────
 export type {
   Modality,

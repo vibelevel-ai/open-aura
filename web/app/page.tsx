@@ -1,4 +1,5 @@
 import { AuraProfile, PublicAuraShell } from '@vibelevel/aura-ui';
+import { ossViewerConfig } from '../lib/aura-config';
 
 // Server-side: reach the backend directly (relative URLs don't resolve on the
 // server). The browser-side fetches the components make use relative /api/aura/*
@@ -21,7 +22,7 @@ export default async function Page() {
   const profile = await getProfile();
   if (!profile || !profile.session_count) {
     return (
-      <PublicAuraShell>
+      <PublicAuraShell config={ossViewerConfig}>
         <div style={{ padding: '4rem 1rem', textAlign: 'center', color: 'var(--vibecoder-text-secondary)' }}>
           <h2 style={{ color: 'var(--vibecoder-text-primary)', fontSize: 22 }}>No Aura yet</h2>
           <p style={{ marginTop: 8 }}>
@@ -33,8 +34,8 @@ export default async function Page() {
     );
   }
   return (
-    <PublicAuraShell>
-      <AuraProfile profile={profile} />
+    <PublicAuraShell config={ossViewerConfig}>
+      <AuraProfile profile={profile} config={ossViewerConfig} />
     </PublicAuraShell>
   );
 }

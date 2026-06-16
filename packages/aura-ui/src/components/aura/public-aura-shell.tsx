@@ -8,10 +8,12 @@
 
 import Link from 'next/link';
 import { VibeLevelLogo } from '../vibelevel-logo';
+import { type AuraViewerConfig, resolveViewerConfig } from '../../lib/aura/viewer-config';
 
 // Slim branded header — the viral funnel bar. Left: logo + wordmark + AURA tag.
-// Center (lg+): a one-line descriptor of what Aura is. Right: green sign-up CTA.
-function PublicAuraHeader() {
+// Center (lg+): a one-line descriptor of what Aura is. Right: the sign-in CTA.
+function PublicAuraHeader({ config }: { config?: AuraViewerConfig }) {
+  const cfg = resolveViewerConfig(config);
   return (
     <header className="relative shrink-0 border-b border-[rgba(255,255,255,0.07)] bg-[#0d1320]">
       <div className="flex h-14 items-center justify-between gap-4 px-5 md:h-16 md:px-6">
@@ -34,13 +36,13 @@ function PublicAuraHeader() {
           </p>
         </div>
 
-        {/* right: sign-up CTA */}
-        <Link
-          href="/login?persona=builder&source=aura"
-          className="relative z-10 inline-flex flex-shrink-0 items-center justify-center rounded-lg border border-[rgba(255,255,255,0.35)] bg-[rgba(255,255,255,0.12)] px-4 py-2 font-mono text-[13px] font-semibold text-white no-underline transition-colors hover:bg-[rgba(255,255,255,0.18)]"
+        {/* right: sign-in CTA (plain anchor so absolute OSS funnel URLs work) */}
+        <a
+          href={cfg.signInHref}
+          className="relative z-10 inline-flex flex-shrink-0 items-center justify-center rounded-lg bg-[rgba(255,255,255,0.12)] px-4 py-2 font-mono text-[13px] font-semibold text-white no-underline transition-colors hover:bg-[rgba(255,255,255,0.18)]"
         >
-          Reveal your Aura  →
-        </Link>
+          {cfg.signInLabel}
+        </a>
       </div>
     </header>
   );
@@ -48,10 +50,16 @@ function PublicAuraHeader() {
 
 // Fixed-height viewport: slim header on top, scrollable content below. The
 // content area (not the page) scrolls.
-export function PublicAuraShell({ children }: { children: React.ReactNode }) {
+export function PublicAuraShell({
+  children,
+  config,
+}: {
+  children: React.ReactNode;
+  config?: AuraViewerConfig;
+}) {
   return (
     <div className="vibecoder-ide flex h-screen flex-col overflow-hidden">
-      <PublicAuraHeader />
+      <PublicAuraHeader config={config} />
       <div className="flex-1 overflow-y-auto px-4 sm:px-10 md:px-16 lg:px-24 xl:px-32">{children}</div>
     </div>
   );

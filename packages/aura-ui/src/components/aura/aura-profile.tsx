@@ -30,6 +30,7 @@ import { InsightCard } from './insight-card';
 import { AuraGuide } from './aura-guide';
 import { dominantModality } from '../../lib/aura/taxonomy';
 import { formatTokens } from '../../lib/aura/format';
+import { type AuraViewerConfig, resolveViewerConfig } from '../../lib/aura/viewer-config';
 
 // ─── color helpers ───────────────────────────────────────────────────────────
 // Canonical VibeLevel green (#00e676 === var(--vibecoder-accent)). Use this for
@@ -334,9 +335,14 @@ export function AuraProfile({
   profile,
   isPublic = false,
   lockedSession,
+  config,
 }: {
   profile: ProfileResponse;
   isPublic?: boolean;
+  // Edition config — funnel labels/links + share behavior. Defaults to the
+  // hosted SaaS behavior; the OSS host overrides it (Sign in → vibelevel.ai,
+  // share → signup).
+  config?: AuraViewerConfig;
   // Single-session share (/s/{id}): lock the whole view to ONE session — its
   // hero, chips, footer, insight cards and dimensions — with the public visitor
   // chrome. The detail is seeded (no fetch); the Scope/Dimensions toggles and
@@ -349,6 +355,7 @@ export function AuraProfile({
   };
 }) {
   const locked = !!lockedSession;
+  const cfg = resolveViewerConfig(config);
   const [copied, setCopied] = useState(false);
   // Count-only profile likes — local override for optimistic updates (null until
   // the visitor likes, then falls back to profile.like_count).
@@ -420,6 +427,13 @@ export function AuraProfile({
 
   // ── share (reused logic) ──
   const handleShare = async () => {
+    // OSS edition: local profiles aren't shareable — funnel to VibeLevel signup
+    // instead of copying a local link.
+    if (cfg.shareMode === 'signup') {
+      if (typeof window !== 'undefined') window.open(cfg.signInHref, '_blank', 'noopener');
+      toast.info('Sign up to publish & share your Aura on VibeLevel');
+      return;
+    }
     // Viewing a single session → share THAT session via its unguessable link,
     // which works even when the profile is private. Otherwise share the public
     // profile (needs a claimed handle + public visibility).
@@ -694,11 +708,13 @@ export function AuraProfile({
                   {copied ? <Check className="h-3.5 w-3.5" /> : <Share2 className="h-3.5 w-3.5" />}
                   {copied
                     ? 'Copied'
-                    : viewingSession
-                      ? 'Share'
-                      : isPublic
+                    : cfg.shareMode === 'signup'
+                      ? 'Share on VibeLevel'
+                      : viewingSession
                         ? 'Share'
-                        : 'Share Profile'}
+                        : isPublic
+                          ? 'Share'
+                          : 'Share Profile'}
                 </button>
                 {profile.handle && (
                   <button
@@ -940,10 +956,10 @@ export function AuraProfile({
               VibeLevel Aura scores your real AI work — Coding or Writing. See where you land.
             </p>
             <a
-              href="/login?persona=builder&source=aura"
-              className="mt-5 inline-flex items-center justify-center rounded-lg border border-[rgba(255,255,255,0.35)] bg-[rgba(255,255,255,0.12)] px-5 py-2.5 font-mono text-sm font-semibold text-white no-underline transition-colors hover:bg-[rgba(255,255,255,0.18)]"
+              href={cfg.signInHref}
+              className="mt-5 inline-flex items-center justify-center rounded-lg bg-[rgba(255,255,255,0.12)] px-5 py-2.5 font-mono text-sm font-semibold text-white no-underline transition-colors hover:bg-[rgba(255,255,255,0.18)]"
             >
-              Reveal your Aura →
+              {cfg.signInLabel}
             </a>
           </Card>
         </section>
