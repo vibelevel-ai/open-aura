@@ -1,0 +1,23 @@
+# secrets / local env
+.env
+.env.*
+!.env.example
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# node / next (web viewer host + aura-ui package)
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+npm-debug.log*
+
+# os
+.DS_Store

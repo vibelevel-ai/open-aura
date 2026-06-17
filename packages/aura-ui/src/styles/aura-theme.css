@@ -1,0 +1,62 @@
+/* ===================================================================
+   VibeLevel Aura UI — theme tokens
+   The "VibeCoder" dark theme the Aura viewer is built on. The components
+   reference these `--vibecoder-*` CSS variables, the `.vibecoder-ide`
+   scope (used by the shell), and the `.vibecoder-panel` utility (used by
+   AuraLeaderboard). Import this once in the host app so the package is
+   self-contained for theming. Tailwind utility classes still need the
+   host's Tailwind build; this file only provides the design tokens those
+   classes (and inline var() refs) depend on.
+   =================================================================== */
+
+/* VibeCoder Color Palette */
+:root {
+    --vibecoder-bg: #0a0e17;
+    --vibecoder-panel: #111827;
+    --vibecoder-accent: #00e676;
+    --vibecoder-text-primary: #f0f2f5;
+    --vibecoder-text-secondary: #8899aa;
+    --vibecoder-success: #00e676;
+    --vibecoder-error: #ff5252;
+    --vibecoder-warning: #ffd740;
+    --vibecoder-border: #1e2a3a;
+    --vibecoder-purple: #7c4dff;
+    --vibecoder-yellow: #ffd740;
+    --vibecoder-card-hover: #1a2332;
+    --vibecoder-text-muted: #556677;
+}
+
+/* IDE / Aura container — override shadcn CSS variables for full dark theme.
+   PublicAuraShell wraps the public Aura surfaces in `.vibecoder-ide`, so any
+   shadcn primitive (Card, Dialog, Button) rendered inside auto-themes to dark. */
+.vibecoder-ide {
+    background-color: var(--vibecoder-bg);
+    color: var(--vibecoder-text-primary);
+
+    /* Override shadcn/ui design tokens so ALL components auto-theme */
+    --background: 220 40% 6%;
+    --foreground: 210 20% 96%;
+    --card: 220 30% 11%;
+    --card-foreground: 210 20% 96%;
+    --popover: 220 30% 11%;
+    --popover-foreground: 210 20% 96%;
+    --primary: 145 100% 45%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 220 30% 11%;
+    --secondary-foreground: 210 20% 96%;
+    --muted: 220 20% 16%;
+    --muted-foreground: 210 15% 50%;
+    --accent: 145 100% 45%;
+    --accent-foreground: 0 0% 0%;
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 210 20% 96%;
+    --border: 210 20% 17%;
+    --input: 210 20% 17%;
+    --ring: 145 100% 45%;
+}
+
+/* Panel background — used by AuraLeaderboard's table wrapper. */
+.vibecoder-panel {
+    background-color: var(--vibecoder-panel);
+    border: 1px solid rgba(30, 42, 58, 0.5);
+}
