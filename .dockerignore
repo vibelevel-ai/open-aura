@@ -13,8 +13,24 @@ venv/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+
 # node / next build artifacts (regenerated inside web/Dockerfile)
 node_modules/
 .next/
 out/
 *.log
+
+# orchestration / infrastructure (not needed inside images)
+docker-compose.yml
+schema.sql
+
+# documentation and research (no runtime value)
+*.md
+future-enhancements/
+assets/
+NOTICE
+CONTRIBUTING.md
+
+# dev tooling artifacts
+.bug-hunter/
+.obsidian/
