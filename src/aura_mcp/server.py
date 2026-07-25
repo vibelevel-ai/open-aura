@@ -29,6 +29,7 @@ from mcp.types import ToolAnnotations
 from ..services.aura.contracts import (
     EvidencePacket,
     ImportSummary,
+    LocalContext,
     ProfileResponse,
     ScoreResult,
     WhoAmIResponse,
@@ -106,7 +107,10 @@ mcp = FastMCP(
         title="Score this AI work session", idempotentHint=True
     )
 )
-async def score_this_session(evidence: dict) -> ScoreResult:
+async def score_this_session(
+    evidence: dict,
+    local_context: LocalContext | None = None,
+) -> ScoreResult:
     """Score ONE just-completed local AI work session and return the result.
 
     WHEN to use: right after you finish a real piece of work with the user
@@ -190,6 +194,23 @@ async def score_this_session(evidence: dict) -> ScoreResult:
       claude_ai / chatgpt → model + any tool calls (lighter)
       perplexity / web    → turns + model only
 
+    LOCAL CONTEXT (optional — Open Aura operational insights). Because Open Aura
+    runs ON the user's machine, you may ALSO pass ``local_context`` with the REAL,
+    UNREDACTED artifacts — these never leave the machine and are NOT scored,
+    persisted, or fingerprinted. The server uses them transiently to derive what
+    you used/built and HOW (hand-rolled vs an established SDK), grounds that against
+    a Product Feature Graph, and returns advisory ``pfg_check_tips``. Send what the
+    session has:
+        local_context = {
+          "git_diff": "<full `git diff` output for the changes>",
+          "full_transcript": "<full session transcript text>",
+          "manifests": {"package.json": "<raw>", "requirements.txt": "<raw>"},
+          "commands": ["docker compose up", "pytest", "fly deploy"],
+          "repo": "my-repo"           # label only, no contents
+        }
+    This is OPT-IN and only acts when PFG grounding is configured server-side; omit
+    it and scoring behaves exactly as before. It NEVER affects the Aura score.
+
     RETURNS a ScoreResult dict: ``aura_score`` (0-10), ``aura_level``
     (Emerging | Capable | Strong | Exceptional), ``archetype``,
     ``dimension_scores`` (per-dimension score + reasoning), ``cards``
@@ -207,7 +228,9 @@ async def score_this_session(evidence: dict) -> ScoreResult:
     evidence = {**evidence, "source": normalize_source(evidence.get("source"))}
     packet = EvidencePacket(**evidence)   # validates + enforces the redaction shape
     scorer = get_aura_scorer()
-    result = await scorer.score_evidence(user_id, packet)
+    # local_context (if any) is kept OUT of the persisted/fingerprinted packet —
+    # it's consumed transiently for PFG grounding only.
+    result = await scorer.score_evidence(user_id, packet, local_context=local_context)
     return dict(result)
 
 

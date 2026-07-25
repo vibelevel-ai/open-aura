@@ -60,6 +60,85 @@ class FileTouched(BaseModel):
     ops: Optional[str] = Field(None, description="e.g. 'created' | 'edited' | 'read'.")
 
 
+# ===========================================================================
+# PFG OPERATIONAL INSIGHTS (Open Aura POC) — local-context grounding.
+#
+# The hosted edition can only score a REDACTED packet, so it had to ask the
+# agent to self-report tags; weak guesses → weak grounding. Open Aura runs
+# locally, so it can pass the UNREDACTED `LocalContext` (real git diff + full
+# transcript + manifests) and derive high-quality tags server-side, then ground
+# them against a Product Feature Graph into advisory "check-tips".
+#
+# IMPORTANT: `LocalContext` is a SEPARATE argument to `score_this_session` — it
+# is NOT part of `EvidencePacket`, so it is never persisted, never fingerprinted,
+# and never fed to the scoring LLM. It stays on the user's machine, used only
+# transiently to extract tags. Tags NEVER affect the Aura score.
+# ===========================================================================
+
+# Each tag category maps to the PFG node type(s) it resolves against.
+TagCategory = Literal[
+    "library",       # SDK/framework/package          -> product / product_line / feature
+    "service",       # external service / integration -> external_system
+    "model",         # model / provider              -> external_system
+    "infra",         # internal stack component      -> tech_component
+    "capability",    # capability / feature built    -> capability / feature
+    "pattern",       # architecture pattern          -> capability
+    "work_area",     # concern touched (db-access, auth, endpoint) -> standard / agent_skill
+    "product_area",  # part of the user's OWN product -> feature / sub_feature / product_line
+]
+# How the tag was actually observed in the session — MUST be real evidence.
+# `discussion` is the weakest basis and is treated as low evidence (not surfaced).
+EvidenceBasis = Literal["import", "file", "command", "discussion"]
+# HOW a capability/pattern was implemented. "established" forms (sdk/library/
+# framework) vs "hand-rolled" forms (direct-api/manual/custom) — the hand-rolled
+# ones let the graph suggest the established tool it maps.
+ApproachType = Literal["sdk", "library", "framework", "direct-api", "manual", "custom"]
+
+
+class PfgTag(BaseModel):
+    """An evidence-derived signal extracted from the session, to be grounded
+    against the Product Feature Graph. NAMES + CATEGORIES ONLY — no code/prompts.
+    In Open Aura these are derived LOCALLY from the real diff/transcript, not
+    self-reported by the agent. Resolved read-only; never feeds the LLM score."""
+    name: str = Field(..., description="Normalized tag, e.g. 'langchain', 'mcp', 'db-access'.")
+    category: TagCategory
+    evidence_basis: EvidenceBasis = Field(
+        "file",
+        description="How it was seen in THIS session (import | file | command | "
+                    "discussion).",
+    )
+    approach: Optional[ApproachType] = Field(
+        None,
+        description="HOW a capability/pattern was implemented, when relevant: a "
+                    "hand-rolled value (direct-api | manual | custom) when something "
+                    "an established SDK/framework usually handles was built by hand, "
+                    "else sdk | library | framework.",
+    )
+
+
+class LocalContext(BaseModel):
+    """UNREDACTED, local-only context used ONLY for PFG operational grounding.
+
+    Open Aura's divergence from the hosted edition: because everything stays on
+    the user's machine, the agent can pass the REAL artifacts so the server can
+    derive accurate tags. This is NEVER persisted, fingerprinted, or scored — it
+    is consumed transiently by the local extractor and discarded. All fields
+    optional; send what the session has.
+    """
+    git_diff: Optional[str] = Field(
+        None, description="Real `git diff` (working tree or session range) — full text.")
+    full_transcript: Optional[str] = Field(
+        None, description="Full, unredacted session transcript text.")
+    manifests: dict[str, str] = Field(
+        default_factory=dict,
+        description="filename -> raw contents for dependency manifests touched/present "
+                    "(package.json, requirements.txt, pyproject.toml, go.mod, Cargo.toml).")
+    commands: list[str] = Field(
+        default_factory=list, description="Shell commands actually run this session.")
+    repo: Optional[str] = Field(
+        None, description="Repo name/label for context (no contents).")
+
+
 class EvidencePacket(BaseModel):
     """What `score_this_session` / `import_history` receive per session."""
     source: Source
@@ -124,6 +203,7 @@ class ScoreResult(TypedDict, total=False):
     human_contribution_label: str
     model_version: str
     profile_delta: dict[str, Any]           # change vs the user's running profile
+    pfg_check_tips: list[dict]              # advisory PFG-grounded operational tips (never scored)
 
 
 class SessionSummary(TypedDict, total=False):

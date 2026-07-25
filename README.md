@@ -49,6 +49,17 @@ The redaction contract is the whole point: **raw transcripts and file contents n
 | `POSTGRES_URL` | compose-provided | local Postgres (apply `schema.sql` for bare-metal) |
 | `AURA_MCP_PORT` | `8090` | MCP server port |
 
+## Experimental: PFG operational insights
+
+This branch (`pfg-insights-poc`) adds an **opt-in, off-by-default** capability: ground
+a session against a **Product Feature Graph** and get advisory *check-tips* (e.g.
+"you hand-rolled X — the graph maps an established SDK", or "this is marked legacy").
+It works precisely *because* Open Aura is local — it reads your **real** `git diff`
+and full transcript (passed as `local_context`, never persisted or scored) instead of
+a redacted summary. It never affects your Aura score. See
+[`docs/PFG_INSIGHTS_POC.md`](docs/PFG_INSIGHTS_POC.md) and the `PFG_*` vars in
+`.env.example`.
+
 ## How it's built
 
 - `src/aura_mcp/` — the MCP server (`server.py`) + the single-local-user binding (`local_auth.py`).

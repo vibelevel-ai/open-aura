@@ -38,6 +38,7 @@ from .aura_signal_extractor import (
     classify_modality,
     session_fingerprint,
 )
+from .pfg_client import ground_session as pfg_ground_session
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +82,7 @@ class AuraScoringService(AuraScorer):
     # -- public API ---------------------------------------------------------
 
     async def score_evidence(
-        self, user_id: str, evidence: EvidencePacket
+        self, user_id: str, evidence: EvidencePacket, local_context=None
     ) -> ScoreResult:
         """Score one real AI work session, referencelessly.
 
@@ -89,15 +90,33 @@ class AuraScoringService(AuraScorer):
         prompt -> call LLM -> parse dimension scores + qualitative cards ->
         weighted overall -> engagement dampening -> labels -> cards ->
         persist AuraSession (upsert on (user_id, fingerprint)) -> profile_delta.
+
+        ``local_context`` (Open Aura only) is the UNREDACTED real diff/transcript,
+        used solely for best-effort PFG operational grounding. It is NOT scored,
+        persisted, or fingerprinted.
         """
         fingerprint = session_fingerprint(evidence)
         ingested_via = "mcp"
-        return await self._score_one(
+        result = await self._score_one(
             user_id=user_id,
             evidence=evidence,
             fingerprint=fingerprint,
             ingested_via=ingested_via,
         )
+        # Best-effort PFG grounding → advisory check-tips (operational insights).
+        # Single-session only (NOT bulk import). Off by default + env-gated; runs
+        # off-thread (the extractor's LLM call + urllib transport are blocking);
+        # never affects the score and never raises.
+        if local_context is not None:
+            try:
+                tips = await asyncio.to_thread(
+                    pfg_ground_session, local_context, evidence
+                )
+                if tips:
+                    result["pfg_check_tips"] = tips
+            except Exception as exc:
+                logger.debug("[AURA-PFG] grounding skipped: %s", exc)
+        return result
 
     async def import_sessions(
         self, user_id: str, packets: List[EvidencePacket]
@@ -351,6 +370,10 @@ class AuraScoringService(AuraScorer):
             "human_contribution_label": hc_label,
             "model_version": model_version,
             "profile_delta": profile_delta,
+            # Always present so the MCP structured-output schema (array) validates;
+            # score_evidence overwrites it with real PFG check-tips when grounding
+            # runs against a configured graph.
+            "pfg_check_tips": [],
         }
         logger.info(
             "[AURA-SCORING] Done fp=%s -> session_id=%s score=%s level=%s "
@@ -992,6 +1015,7 @@ class AuraScoringService(AuraScorer):
             "model_version": model_version,
             "profile_delta": {"delta": None, "prior_avg": None, "new_score": 0.0,
                               "is_first_session": False, "status": "scoring_failed"},
+            "pfg_check_tips": [],
         }
 
 
