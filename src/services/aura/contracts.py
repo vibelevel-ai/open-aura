@@ -18,7 +18,13 @@ from typing import Any, Literal, Optional, Protocol, runtime_checkable
 # pydantic raises PydanticUserError on `typing.TypedDict` under 3.11.
 from typing_extensions import TypedDict
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from .aura_profile_facts import (
+    sanitize_mcp_name,
+    sanitize_repository_name,
+    sanitize_summary,
+)
 
 Modality = Literal["coding", "noncoding"]
 # Canonical agent sources (mirrors agent_registry.AGENT_CAPABILITIES). The MCP
@@ -60,6 +66,58 @@ class FileTouched(BaseModel):
     ops: Optional[str] = Field(None, description="e.g. 'created' | 'edited' | 'read'.")
 
 
+class WorkspaceContext(BaseModel):
+    """Automatically collected, sanitized workspace metadata for local profiles."""
+
+    repository: Optional[str] = Field(
+        None, description="Repository/project basename only; no local path or URL."
+    )
+    project_summary: Optional[str] = Field(
+        None, max_length=240, description="Short redacted project description."
+    )
+    languages: list[str] = Field(default_factory=list, max_length=24)
+    mcp_servers: list[str] = Field(
+        default_factory=list,
+        max_length=32,
+        description="Display names/categories only; never URLs or credentials.",
+    )
+
+    @field_validator("repository", mode="before")
+    @classmethod
+    def _sanitize_repository(cls, value: Any) -> Optional[str]:
+        return sanitize_repository_name(value)
+
+    @field_validator("mcp_servers", mode="before")
+    @classmethod
+    def _sanitize_mcp_servers(cls, value: Any) -> list[str]:
+        if not isinstance(value, list):
+            return []
+        return [
+            cleaned
+            for item in value
+            if (cleaned := sanitize_mcp_name(item)) is not None
+        ]
+
+    @field_validator("project_summary", mode="before")
+    @classmethod
+    def _sanitize_project_summary(cls, value: Any) -> Optional[str]:
+        return sanitize_summary(value)
+
+    @field_validator("languages", mode="before")
+    @classmethod
+    def _sanitize_languages(cls, value: Any) -> list[str]:
+        if not isinstance(value, list):
+            return []
+        cleaned: list[str] = []
+        for item in value:
+            if not isinstance(item, str):
+                continue
+            label = " ".join(item.strip().split())
+            if label and len(label) <= 40:
+                cleaned.append(label)
+        return cleaned[:24]
+
+
 class EvidencePacket(BaseModel):
     """What `score_this_session` / `import_history` receive per session."""
     source: Source
@@ -76,6 +134,7 @@ class EvidencePacket(BaseModel):
     )
     turns: list[Turn] = Field(default_factory=list)
     files_touched: list[FileTouched] = Field(default_factory=list)
+    workspace_context: WorkspaceContext = Field(default_factory=WorkspaceContext)
     # Local stats the agent supplies. PREFER MEASURED values here over the
     # redacted `turns` — a truncated/excerpted packet drastically under-counts
     # tokens, so token cards trust these when present. Recognised keys (all
@@ -124,6 +183,7 @@ class ScoreResult(TypedDict, total=False):
     human_contribution_label: str
     model_version: str
     profile_delta: dict[str, Any]           # change vs the user's running profile
+    profile_facts: dict[str, Any]           # inferred facts from this session
 
 
 class SessionSummary(TypedDict, total=False):
@@ -159,6 +219,9 @@ class ProfileResponse(TypedDict, total=False):
     benchmarks: dict  # personal-relative benchmarks
     dimension_trends: dict[str, list[float]]  # last-N per-dimension score series
     ships_it: bool  # majority of sessions taken through to a shipped/delivered outcome
+    profile_facts: dict[str, Any]  # evidence-weighted identity/hiring facts
+    toolkit: dict[str, Any]  # measured agents/models/tools/skills/MCP summaries
+    projects: list[dict[str, Any]]  # repository-grouped local project evidence
 
 
 class WhoAmIResponse(TypedDict, total=False):
