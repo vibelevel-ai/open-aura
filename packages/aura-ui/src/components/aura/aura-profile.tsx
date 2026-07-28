@@ -1,15 +1,13 @@
 'use client';
 
-// VibeLevel Aura — public profile (the shareable expansion), v1.0 mock rebuild.
+// VibeLevel Aura profile renderer shared by the local and hosted viewers.
 //
 // Sections (top → bottom):
-//   1. Hero        — monogram + name/handle + archetype·tagline, score block,
-//                    level badge, mono chips (sessions · source · modality),
-//                    Share Aura button.
-//   2. Insights    — LAYOUT (Card wall | 3-up), SCOPE (Overall | This session),
-//                    FILTER (All | Behavioral | Personality) → InsightCard grid.
-//   3. Dimensions  — All sessions avg | Selected session → 2-col score bars.
-//   4. Recent Sessions — click a row to sync the Dimensions + Insights scope.
+//   1. Reference-style identity hero + score ring.
+//   2. Local evidence: profile signals, activity, toolkit, and projects.
+//   3. Dimensions + human edge.
+//   4. Insights with existing layout/scope/filter controls.
+//   5. Recent sessions and explicit hosted publication boundary.
 //
 // HARD COLOR RULE: white / green / dark only. NO purple/violet.
 //   Behavioral / primary → GREEN.  Personality / mid → AMBER (#f59e0b).  low → RED.
@@ -31,6 +29,11 @@ import { AuraGuide } from './aura-guide';
 import { dominantModality } from '../../lib/aura/taxonomy';
 import { formatTokens } from '../../lib/aura/format';
 import { type AuraViewerConfig, resolveViewerConfig } from '../../lib/aura/viewer-config';
+import { AuraActivity } from './aura-activity';
+import { AuraToolkit } from './aura-toolkit';
+import { AuraProjects } from './aura-projects';
+import { AuraHumanEdge } from './aura-human-edge';
+import { AuraPublishCta } from './aura-publish-cta';
 
 // ─── color helpers ───────────────────────────────────────────────────────────
 // Canonical VibeLevel green (#00e676 === var(--vibecoder-accent)). Use this for
@@ -359,6 +362,7 @@ export function AuraProfile({
 }) {
   const locked = !!lockedSession;
   const cfg = resolveViewerConfig(config);
+  const isLocalOwnerProfile = !locked && !isPublic && cfg.edition === 'local';
   const [copied, setCopied] = useState(false);
   // Count-only profile likes — local override for optimistic updates (null until
   // the visitor likes, then falls back to profile.like_count).
@@ -418,6 +422,9 @@ export function AuraProfile({
   const primary = primarySource(profile.sources);
   const overallMod = overallModality(profile.sessions);
   const totalTokens = profile.stats?.total_tokens;
+  const profileFacts = profile.profile_facts ?? {};
+  const availability = profileFacts.availability?.value?.trim();
+  const location = profileFacts.location?.value?.trim();
 
   // Best single-session score + its level — computed by the backend
   // (build_profile) and surfaced next to "Avg of all sessions". Shown when a
@@ -429,11 +436,13 @@ export function AuraProfile({
 
   // ── share (reused logic) ──
   const handleShare = async () => {
-    // OSS edition: local profiles aren't shareable — funnel to VibeLevel signup
-    // instead of copying a local link.
+    // OSS edition: local profiles aren't shareable. Open the explicit hosted
+    // publishing destination; this navigation does not upload local data.
     if (cfg.shareMode === 'signup') {
-      if (typeof window !== 'undefined') window.open(cfg.signInHref, '_blank', 'noopener');
-      toast.info('Sign up to publish & share your Aura on VibeLevel');
+      if (typeof window !== 'undefined') {
+        window.open(cfg.hostedAuraHref, '_blank', 'noopener,noreferrer');
+      }
+      toast.info('Your Aura stays local until you explicitly publish it');
       return;
     }
     // Viewing a single session → share THAT session via its unguessable link,
@@ -533,7 +542,7 @@ export function AuraProfile({
   const sessionDisabled = selectedSessionId == null;
 
   return (
-    <div className="w-full px-4 pt-2 pb-8">
+    <div className="mx-auto w-full max-w-[1120px] px-4 pb-10 pt-2">
       {/* ── 1. Hero ─────────────────────────────────────────────────────── */}
       <Card className="relative overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(13,18,30,0.95)] shadow-[0_8px_40px_rgba(0,0,0,0.45)]">
         {/* faint WHITE glow (dark → white, no green tint in the hero bg) */}
@@ -543,187 +552,75 @@ export function AuraProfile({
         />
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(255,255,255,0.12)] to-transparent" />
 
-        <div className="relative flex flex-col gap-8 p-6 md:flex-row md:items-center md:gap-x-12 md:p-8">
-          {/* identity (left column) — monogram + name on the top row, the
-              archetype/tagline spanning the full width below (aligned to the
-              monogram's left edge so it uses the space under the avatar). */}
-          <div className="flex min-w-0 flex-col gap-3">
-            <div className="flex min-w-0 items-center gap-4">
-              {/* monogram avatar */}
-              <div
-                className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl border font-mono text-xl font-bold"
-                style={{
-                  color: GREEN_HEX,
-                  borderColor: 'rgba(0,230,118,0.35)',
-                  background: 'rgba(0,230,118,0.10)',
-                }}
-              >
-                {initialsOf(profile.display_name)}
-              </div>
-
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-3">
-                  <h1 className="truncate text-xl font-bold text-white md:text-2xl">
+        <div
+          className={[
+            'relative grid gap-8 p-6 md:grid-cols-[minmax(0,1fr)_220px] md:p-8 lg:gap-12',
+            isLocalOwnerProfile
+              ? 'lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-8'
+              : '',
+          ].join(' ')}
+        >
+          <div className="min-w-0">
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+              <div className="flex min-w-0 items-center gap-4">
+                <div
+                  className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl border font-mono text-xl font-bold"
+                  style={{
+                    color: GREEN_HEX,
+                    borderColor: 'rgba(0,230,118,0.35)',
+                    background: 'rgba(0,230,118,0.10)',
+                  }}
+                >
+                  {initialsOf(profile.display_name)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h1 className="truncate text-2xl font-bold tracking-tight text-white md:text-3xl">
                     {profile.display_name}
                   </h1>
+                  {profile.handle ? (
+                    <p className="mt-1 truncate font-mono text-xs text-[var(--vibecoder-text-secondary)]">
+                      vibelevel.ai/u/{profile.handle}
+                    </p>
+                  ) : !isPublic ? (
+                    <p className="mt-1 font-mono text-xs text-[var(--vibecoder-text-secondary)]">
+                      Local profile · stored on this device
+                    </p>
+                  ) : null}
+                  {profileFacts.headline?.value && (
+                    <p className="mt-1 text-sm font-medium text-[rgba(255,255,255,.76)]">
+                      {profileFacts.headline.value}
+                    </p>
+                  )}
                 </div>
-                {profile.handle ? (
-                  <p className="mt-0.5 font-mono text-sm text-[var(--vibecoder-text-secondary)]">
-                    vibelevel.ai/u/{profile.handle}
-                  </p>
-                ) : !isPublic ? (
-                  <p className="mt-0.5 text-sm text-[var(--vibecoder-text-secondary)]">
-                    <a
-                      href="/aura/settings"
-                      className="font-mono text-[var(--vibecoder-text-secondary)] hover:text-[var(--vibecoder-accent)] hover:underline"
-                    >
-                      claim a handle in settings
-                    </a>
-                  </p>
-                ) : null}
               </div>
-            </div>
 
-            {/* archetype + tagline — aligned to the monogram's left edge */}
-            <p className="max-w-2xl text-base font-semibold leading-snug" style={{ color: GREEN_HEX }}>
-              {profile.archetype}
-              {profile.archetype_tagline && (
-                <span className="ml-1 font-normal text-[var(--vibecoder-text-secondary)]">
-                  — {profile.archetype_tagline}
-                </span>
-              )}
-            </p>
-
-
-          </div>
-
-          {/* score panel — pushed to the right edge of the hero (md:ml-auto).
-              min-width gives both rows a stable shared width so Row 1 can spread
-              (score ↔ Share at the edges) and Row 2's chips fill the same span. */}
-          <div className="flex w-full flex-shrink-0 flex-col gap-3 md:ml-auto md:w-auto md:min-w-[380px] md:border-l md:border-[rgba(139,146,184,0.12)] md:pl-12">
-            {/* Score row: labels + share on same line, scores + best below, like last */}
-            <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
-              <div className="flex flex-col gap-2">
-                {/* Label */}
-                <span className="font-mono text-[13px] font-semibold uppercase tracking-[0.16em] text-white">
-                  {viewingSession ? 'Session Score' : 'Avg of all sessions'}
-                </span>
-                {/* Score number */}
-                <div className="flex items-baseline gap-1">
-                  <span
-                    className="font-mono text-5xl font-bold leading-none"
-                    style={{ color: GREEN_HEX }}
+              <div className="flex flex-col items-start gap-2 lg:items-end">
+                {isLocalOwnerProfile ? (
+                  <a
+                    href={cfg.hostedAuraHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex max-w-full items-center justify-center gap-2 rounded-xl border border-[rgba(255,255,255,.14)] bg-[rgba(255,255,255,.04)] px-4 py-2.5 text-center text-sm font-semibold leading-snug text-white transition-colors hover:border-[rgba(0,230,118,.4)] hover:text-[var(--vibecoder-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vibecoder-accent)]"
                   >
-                    {heroScore.toFixed(1)}
-                  </span>
-                  <span className="font-mono text-2xl font-semibold leading-none text-[var(--vibecoder-text-secondary)]">
-                    /10
-                  </span>
-                </div>
-                {/* Level badge + Ships it — inline row below score */}
-                <div className="flex flex-wrap items-center gap-2">
-                  {heroLevel && (
-                    <AuraGuide
-                      currentLevel={heroLevel}
-                      currentArchetype={profile.archetype}
-                      modality={dominantModality(profile.sessions)}
-                      trigger={
-                        <button
-                          type="button"
-                          title="How levels & archetypes work"
-                          className="inline-flex w-fit items-center gap-1 rounded-full border px-3 py-1 font-mono text-[12px] font-semibold uppercase tracking-wide transition-opacity hover:opacity-80"
-                          style={{
-                            color: lvlColor,
-                            borderColor: `${lvlColor}66`,
-                            background: `${lvlColor}1a`,
-                          }}
-                        >
-                          {heroLevel}
-                          <HelpCircle className="h-3 w-3 opacity-70" />
-                        </button>
-                      }
-                    />
-                  )}
-                  {shipsIt && (
-                    <span
-                      title={
-                        viewingSession
-                          ? 'Shipped end-to-end this session — strengthens Verification & Deliverable Quality'
-                          : 'Consistently ships end-to-end — strengthens Verification & Deliverable Quality'
-                      }
-                      className="inline-flex w-fit items-center gap-1 rounded-full border px-2.5 py-1 font-mono text-[11px] font-semibold uppercase tracking-wide"
-                      style={{
-                        color: GREEN_HEX,
-                        borderColor: `${GREEN_HEX}66`,
-                        background: `${GREEN_HEX}1a`,
-                      }}
-                    >
-                      <Rocket className="h-3 w-3" />
-                      Ships it
-                    </span>
-                  )}
-                </div>
-              </div>
-              {/* Divider between avg and best */}
-              {showBest && (
-                <div className="hidden self-stretch w-px bg-[rgba(139,146,184,0.18)] mx-1 sm:block" />
-              )}
-              {/* Best single-session score + level — public/shared profile only */}
-              {showBest && (
-                <div className="flex flex-col gap-2">
-                  <span className="font-mono text-[13px] font-semibold uppercase tracking-[0.16em] text-white">
-                    Best session
-                  </span>
-                  {/* Score number — same size as avg */}
-                  <div className="flex items-baseline gap-1">
-                    <span
-                      className="font-mono text-5xl font-bold leading-none"
-                      style={{ color: GREEN_HEX }}
-                    >
-                      {profile.best_score!.toFixed(1)}
-                    </span>
-                    <span className="font-mono text-2xl font-semibold leading-none text-[var(--vibecoder-text-secondary)]">
-                      /10
-                    </span>
-                  </div>
-                  {/* Level badge */}
-                  {profile.best_level && (
-                    <span
-                      className="inline-flex w-fit items-center rounded-full border px-3 py-1 font-mono text-[12px] font-semibold uppercase tracking-wide"
-                      style={{
-                        color: levelColor(profile.best_level),
-                        borderColor: `${levelColor(profile.best_level)}66`,
-                        background: `${levelColor(profile.best_level)}1a`,
-                      }}
-                    >
-                      {profile.best_level}
-                    </span>
-                  )}
-                </div>
-              )}
-              {/* Share + Like — pushed to the far right of the scores row */}
-              <div className="ml-auto flex flex-col items-start gap-2">
-                <button
-                  onClick={handleShare}
-                  className="flex items-center gap-1.5 font-mono text-[12px] font-semibold text-[var(--vibecoder-text-secondary)] transition-colors hover:text-[var(--vibecoder-accent)]"
-                >
-                  {copied ? <Check className="h-3.5 w-3.5" /> : <Share2 className="h-3.5 w-3.5" />}
-                  {copied
-                    ? 'Copied'
-                    : cfg.shareMode === 'signup'
-                      ? 'Share on VibeLevel'
-                      : viewingSession
-                        ? 'Share'
-                        : isPublic
-                          ? 'Share'
-                          : 'Share Profile'}
-                </button>
+                    <Rocket className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                    Import your profile to VibeLevel.ai
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleShare}
+                    className="inline-flex w-fit items-center justify-center gap-2 rounded-xl border border-[rgba(255,255,255,.14)] bg-[rgba(255,255,255,.04)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-[rgba(0,230,118,.4)] hover:text-[var(--vibecoder-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vibecoder-accent)]"
+                  >
+                    {copied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
+                    {copied ? 'Copied' : 'Share this Aura'}
+                  </button>
+                )}
                 {profile.handle && (
                   <button
                     type="button"
                     onClick={likeProfile}
                     aria-label="Like this Aura"
-                    className="group flex items-center gap-1.5 font-mono text-[12px] font-semibold text-[var(--vibecoder-text-secondary)] transition-colors hover:text-rose-400"
+                    className="group inline-flex items-center gap-1.5 font-mono text-[11px] font-semibold text-[var(--vibecoder-text-secondary)] transition-colors hover:text-rose-400"
                   >
                     <Heart className="h-3.5 w-3.5 transition-colors group-hover:fill-rose-400 group-hover:text-rose-400" />
                     {displayLikes} {displayLikes === 1 ? 'like' : 'likes'}
@@ -732,39 +629,166 @@ export function AuraProfile({
               </div>
             </div>
 
-            {/* Row 2: mono chips in an equal-fraction grid so they always fill
-                the same width as the score row above and auto-fit as the data
-                changes (fewer chips → wider; a long model name truncates in its
-                cell rather than widening the row). */}
-            <div className="grid grid-cols-2 gap-2 sm:grid-flow-col sm:auto-cols-fr">
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <span
+                className="inline-flex rounded-lg px-3 py-1.5 text-sm font-semibold"
+                style={{ color: GREEN_HEX, background: 'rgba(0,230,118,.1)' }}
+              >
+                {profile.archetype}
+              </span>
+              <span className="font-mono text-[10px] uppercase tracking-[.16em] text-[var(--vibecoder-text-secondary)]">
+                From {profile.session_count} session{profile.session_count === 1 ? '' : 's'}
+              </span>
+            </div>
+
+            {profile.archetype_tagline && (
+              <p className="mt-4 max-w-2xl text-base leading-relaxed text-[var(--vibecoder-text-secondary)] md:text-lg">
+                {profile.archetype_tagline}
+              </p>
+            )}
+
+            <div className="mt-5 flex flex-wrap gap-2">
               {viewingSession ? (
                 <>
                   {selectedSession!.created_at && (
-                    <MonoChip size="md" fill>{formatDate(selectedSession!.created_at)}</MonoChip>
+                    <MonoChip size="md">{formatDate(selectedSession!.created_at)}</MonoChip>
                   )}
                   {selectedSession!.source && (
-                    <MonoChip size="md" fill>{prettySource(selectedSession!.source)}</MonoChip>
+                    <MonoChip size="md">{prettySource(selectedSession!.source)}</MonoChip>
                   )}
-                  <MonoChip size="md" fill>{modalityChip(selectedSession!.modality)}</MonoChip>
+                  <MonoChip size="md">{modalityChip(selectedSession!.modality)}</MonoChip>
                   {sessionTokens > 0 && (
-                    <MonoChip size="md" fill>{formatCompact(sessionTokens)} TOKENS</MonoChip>
+                    <MonoChip size="md">{formatCompact(sessionTokens)} TOKENS</MonoChip>
                   )}
                 </>
               ) : (
                 <>
-                  <MonoChip size="md" fill>
+                  <MonoChip size="md">
                     {profile.session_count} SESSION{profile.session_count === 1 ? '' : 'S'}
                   </MonoChip>
-                  {primary && <MonoChip size="md" fill>{prettySource(primary)}</MonoChip>}
-                  {overallMod && <MonoChip size="md" fill>{overallMod}</MonoChip>}
+                  {primary && <MonoChip size="md">{prettySource(primary)}</MonoChip>}
+                  {overallMod && <MonoChip size="md">{overallMod}</MonoChip>}
                   {typeof totalTokens === 'number' && totalTokens > 0 && (
-                    <MonoChip size="md" fill>{formatCompact(totalTokens)} TOKENS</MonoChip>
+                    <MonoChip size="md">{formatCompact(totalTokens)} TOKENS</MonoChip>
                   )}
                 </>
               )}
             </div>
           </div>
+
+          <div className="flex flex-col items-center md:border-l md:border-[rgba(139,146,184,.14)] md:pl-8">
+            <span className="font-mono text-[10px] font-semibold uppercase tracking-[.18em] text-[var(--vibecoder-text-secondary)]">
+              {viewingSession ? 'Session score' : 'Avg of all sessions'}
+            </span>
+            <div
+              className="mt-3 grid h-44 w-44 place-items-center rounded-full p-[11px] shadow-[0_0_36px_rgba(0,230,118,.12)]"
+              style={{
+                background: `conic-gradient(${lvlColor} ${Math.max(0, Math.min(100, heroScore * 10))}%, rgba(255,255,255,.07) 0)`,
+              }}
+            >
+              <div className="grid h-full w-full place-items-center rounded-full border border-[rgba(255,255,255,.06)] bg-[#0a111d]">
+                <div className="text-center">
+                  <div className="flex items-baseline justify-center gap-1">
+                    <span className="font-mono text-5xl font-bold leading-none text-white">
+                      {heroScore.toFixed(1)}
+                    </span>
+                    <span className="font-mono text-sm text-[var(--vibecoder-text-secondary)]">
+                      /10
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div
+              className={[
+                'mt-4 flex w-full flex-wrap items-center justify-center gap-2',
+                isLocalOwnerProfile ? 'lg:flex-nowrap' : '',
+              ].join(' ')}
+            >
+              {heroLevel && (
+                <AuraGuide
+                  currentLevel={heroLevel}
+                  currentArchetype={profile.archetype}
+                  modality={dominantModality(profile.sessions)}
+                  trigger={
+                    <button
+                      type="button"
+                      title="How levels & archetypes work"
+                      className="inline-flex items-center gap-1 rounded-full border px-3 py-1 font-mono text-[11px] font-semibold uppercase tracking-wide transition-opacity hover:opacity-80"
+                      style={{
+                        color: lvlColor,
+                        borderColor: `${lvlColor}66`,
+                        background: `${lvlColor}1a`,
+                      }}
+                    >
+                      {heroLevel}
+                      <HelpCircle className="h-3 w-3 opacity-70" />
+                    </button>
+                  }
+                />
+              )}
+              {showBest && (
+                <div className="inline-flex items-center gap-2 rounded-xl border border-[rgba(255,255,255,.1)] bg-[rgba(255,255,255,.04)] px-3 py-1.5">
+                  <span className="font-mono text-base font-bold text-white">
+                    {profile.best_score!.toFixed(1)}
+                  </span>
+                  <span className="text-[9px] font-semibold uppercase leading-tight tracking-wide text-[var(--vibecoder-text-secondary)]">
+                    Best session
+                    {profile.best_level ? <><br />{profile.best_level}</> : null}
+                  </span>
+                </div>
+              )}
+              {shipsIt && (
+                <span
+                  title={
+                    viewingSession
+                      ? 'Shipped end-to-end this session'
+                      : 'Consistently ships end-to-end'
+                  }
+                  className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide"
+                  style={{
+                    color: GREEN_HEX,
+                    borderColor: `${GREEN_HEX}66`,
+                    background: `${GREEN_HEX}1a`,
+                  }}
+                >
+                  <Rocket className="h-3 w-3" />
+                  Ships it
+                </span>
+              )}
+            </div>
+          </div>
         </div>
+
+        {isLocalOwnerProfile && (
+          <div className="relative mx-6 mb-6 flex flex-col gap-4 rounded-2xl border border-[rgba(255,255,255,.1)] bg-[rgba(255,255,255,.035)] p-4 md:mx-8 md:flex-row md:items-center">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2.5">
+              <span className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[.14em] text-[var(--vibecoder-text-secondary)]">
+                <span className="h-2 w-2 rounded-sm bg-[var(--vibecoder-accent)]" />
+                For hiring
+              </span>
+              {availability && (
+                <span className="rounded-lg border border-[rgba(255,255,255,.1)] bg-[rgba(255,255,255,.04)] px-3 py-1.5 text-xs text-[var(--vibecoder-text-secondary)]">
+                  {availability}
+                </span>
+              )}
+              {location && (
+                <span className="rounded-lg border border-[rgba(255,255,255,.1)] bg-[rgba(255,255,255,.04)] px-3 py-1.5 text-xs text-[var(--vibecoder-text-secondary)]">
+                  {location}
+                </span>
+              )}
+            </div>
+            <a
+              href={cfg.hostedAuraHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex w-full items-center justify-center whitespace-normal rounded-xl bg-[var(--vibecoder-accent)] px-4 py-2.5 text-center text-sm font-semibold leading-snug text-[#07110b] transition-colors hover:bg-[#12f287] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vibecoder-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d121e] md:w-auto md:max-w-sm"
+            >
+              Sign up on VibeLevel.ai for hiring opportunities with companies
+            </a>
+          </div>
+        )}
 
         {/* Session-aware footer: only shown when viewing a specific session —
             displays its name, ID, and (if shared) the public alias. */}
@@ -809,79 +833,15 @@ export function AuraProfile({
         )}
       </Card>
 
-      {/* ── 2. Insights ─────────────────────────────────────────────────── */}
-      <section className="mt-6">
-        <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <h2 className="text-lg font-semibold text-[var(--vibecoder-text-primary)]">
-            Insights
-          </h2>
-          <div className="flex flex-wrap items-center gap-3">
-            <Segmented<Layout>
-              label="Layout"
-              value={layout}
-              onChange={setLayout}
-              options={[
-                { value: 'wall', label: 'Card wall' },
-                { value: 'three', label: '3-up' },
-              ]}
-            />
-            {/* Scope toggle (Overall | This session) is owner-only — the
-                public view has no session feed to scope to. */}
-            {!isPublic && (
-              <Segmented<Scope>
-                label="Scope"
-                value={scope}
-                onChange={setScope}
-                options={[
-                  { value: 'overall', label: 'Overall' },
-                  { value: 'session', label: 'This session', disabled: sessionDisabled },
-                ]}
-              />
-            )}
-            <Segmented<Filter>
-              value={filter}
-              onChange={setFilter}
-              options={[
-                { value: 'all', label: 'All' },
-                { value: 'credibility', label: 'Behavioral' },
-                { value: 'personality', label: 'Personality' },
-              ]}
-            />
-          </div>
-        </div>
+      {isLocalOwnerProfile && (
+        <>
+          <AuraActivity sessions={profile.sessions} />
+          <AuraToolkit profile={profile} />
+          <AuraProjects projects={profile.projects ?? []} />
+        </>
+      )}
 
-        {detailLoading ? (
-          <div className={`grid gap-3 ${insightGridCols}`}>
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-44 animate-pulse rounded-xl border border-[rgba(255,255,255,0.07)] bg-[rgba(14,20,33,0.85)]"
-              />
-            ))}
-          </div>
-        ) : filteredCards.length > 0 ? (
-          <div className={`grid gap-3 ${insightGridCols}`}>
-            {filteredCards.map((c) => (
-              <InsightCard key={c.id} card={c} showGrowthNudge={!isPublic} />
-            ))}
-          </div>
-        ) : (
-          <Card className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[rgba(14,20,33,0.85)] p-8 text-center">
-            <p className="text-sm text-[var(--vibecoder-text-secondary)]">
-              {scope === 'session'
-                ? 'No insights for the selected session.'
-                : 'No insights yet.'}
-            </p>
-          </Card>
-        )}
-
-        <p className="mt-4 font-mono text-[11px] leading-relaxed text-[var(--vibecoder-text-secondary)] opacity-80">
-          Behavioral (green) = how you steer, plan &amp; verify · Personality (ice blue) =
-          style &amp; habits
-        </p>
-      </section>
-
-      {/* ── 3. Dimensions ───────────────────────────────────────────────── */}
+      {/* ── 2. Dimensions ───────────────────────────────────────────────── */}
       <section className="mt-6">
         <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg font-semibold text-[var(--vibecoder-text-primary)]">
@@ -943,6 +903,85 @@ export function AuraProfile({
             </p>
           </Card>
         )}
+      </section>
+
+      {!locked && !isPublic && cfg.edition === 'local' && (
+        <AuraHumanEdge dimensions={dimScores} />
+      )}
+
+      {/* ── 3. Insights ─────────────────────────────────────────────────── */}
+      <section className="mt-8">
+        <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="text-xl font-semibold tracking-tight text-white md:text-2xl">
+              Insights
+            </h2>
+            <p className="mt-1 text-sm text-[var(--vibecoder-text-secondary)]">
+              Behavioral patterns and personality signals from scored sessions.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Segmented<Layout>
+              label="Layout"
+              value={layout}
+              onChange={setLayout}
+              options={[
+                { value: 'wall', label: 'Card wall' },
+                { value: 'three', label: '3-up' },
+              ]}
+            />
+            {!isPublic && (
+              <Segmented<Scope>
+                label="Scope"
+                value={scope}
+                onChange={setScope}
+                options={[
+                  { value: 'overall', label: 'Overall' },
+                  { value: 'session', label: 'This session', disabled: sessionDisabled },
+                ]}
+              />
+            )}
+            <Segmented<Filter>
+              value={filter}
+              onChange={setFilter}
+              options={[
+                { value: 'all', label: 'All' },
+                { value: 'credibility', label: 'Behavioral' },
+                { value: 'personality', label: 'Personality' },
+              ]}
+            />
+          </div>
+        </div>
+
+        {detailLoading ? (
+          <div className={`grid gap-3 ${insightGridCols}`}>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-44 animate-pulse rounded-xl border border-[rgba(255,255,255,0.07)] bg-[rgba(14,20,33,0.85)]"
+              />
+            ))}
+          </div>
+        ) : filteredCards.length > 0 ? (
+          <div className={`grid gap-3 ${insightGridCols}`}>
+            {filteredCards.map((c) => (
+              <InsightCard key={c.id} card={c} showGrowthNudge={!isPublic} />
+            ))}
+          </div>
+        ) : (
+          <Card className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[rgba(14,20,33,0.85)] p-8 text-center">
+            <p className="text-sm text-[var(--vibecoder-text-secondary)]">
+              {scope === 'session'
+                ? 'No insights for the selected session.'
+                : 'No insights yet.'}
+            </p>
+          </Card>
+        )}
+
+        <p className="mt-4 font-mono text-[11px] leading-relaxed text-[var(--vibecoder-text-secondary)] opacity-80">
+          Behavioral (green) = how you steer, plan &amp; verify · Personality (ice blue) =
+          style &amp; habits
+        </p>
       </section>
 
       {/* ── 4. Recent Sessions (owner) · Visitor CTA (public) ───────────── */}
@@ -1050,6 +1089,12 @@ export function AuraProfile({
         </div>
       </section>
       ))}
+      {!locked && !isPublic && cfg.showHostedProfilePreview && (
+        <AuraPublishCta
+          href={cfg.hostedAuraHref}
+          label={cfg.publishProfileLabel}
+        />
+      )}
     </div>
   );
 }
