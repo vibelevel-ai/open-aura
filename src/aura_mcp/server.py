@@ -134,6 +134,12 @@ async def score_this_session(evidence: dict) -> ScoreResult:
             {"path": "relative/or/basename", "lang": "python",
              "bytes": 1024, "ops": "created"|"edited"|"read"}   # path + metadata only, NO contents
           ],
+          "workspace_context": {     # optional, automatically collected + sanitized
+            "repository": "open-aura",        # basename only; no local path or URL
+            "project_summary": "Local AI session scoring and profile viewer.",
+            "languages": ["Python", "TypeScript"],
+            "mcp_servers": ["GitHub", "Context7"]  # names/categories only
+          },
           "local_stats": {          # MEASURED telemetry — see "GATHER" below
             "tokens": {"total": 1250000, "human": 8000, "measured": True},
             "tools_used": {"Edit": 42, "Read": 30, "Agent": 12},
@@ -189,6 +195,12 @@ async def score_this_session(evidence: dict) -> ScoreResult:
       claude_desktop      → tools_used (+ model)
       claude_ai / chatgpt → model + any tool calls (lighter)
       perplexity / web    → turns + model only
+
+    WORKSPACE PRIVACY — when workspace context is available, collect it
+    automatically but send only repository basenames, short redacted summaries,
+    language labels, and MCP display names/categories. Never send local absolute
+    paths, remote URLs containing credentials, MCP URLs/configuration values,
+    environment variables, API keys, access tokens, or private keys.
 
     RETURNS a ScoreResult dict: ``aura_score`` (0-10), ``aura_level``
     (Emerging | Capable | Strong | Exceptional), ``archetype``,
