@@ -89,6 +89,12 @@ async def get_public_profile(handle: str):
     if (row.get("aura_visibility") or "private") != "public":
         raise HTTPException(status_code=403, detail="This Aura profile is private.")
     profile = await build_profile(str(row["id"]))
+    # Automatically inferred identity, workspace, toolkit, and project facts are
+    # local-owner evidence. They require an explicit hosted publication flow
+    # before becoming public and must never leak through this compatibility URL.
+    profile.pop("profile_facts", None)
+    profile.pop("toolkit", None)
+    profile.pop("projects", None)
     for s in profile.get("sessions", []):
         s["title"] = s.get("share_title") or s.get("title")
     return profile
