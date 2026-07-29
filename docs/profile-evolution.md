@@ -29,8 +29,8 @@ the primary renderer; no parallel profile page was introduced.
 - Fixed 365-day UTC activity heatmap with source filters, totals, active days,
   current/longest streaks, and keyboard/touch day inspection.
 - Agents, models, MCP servers, tools, and skills from verified session metadata.
-- Project cards grouped by sanitized repository basename with session count and
-  average project Aura.
+- Project cards grouped by sanitized repository basename with session count,
+  average project Aura, and an active or disabled GitHub repository icon.
 - Existing dimensions, human-edge presentation, insights, session selection,
   and deep links retained.
 - Centralized hosted sign-in and publication URLs derived from
@@ -42,6 +42,8 @@ the primary renderer; no parallel profile page was introduced.
 sanitized metadata:
 
 - Repository basename.
+- Canonical GitHub repository root, when a supported `origin` remote is
+  available.
 - Short redacted project summary.
 - Language labels.
 - MCP display names/categories.
@@ -59,12 +61,28 @@ Existing sessions without the new fields remain valid. Unsupported or
 low-confidence values are omitted and the UI shows an insufficient-evidence
 state rather than fabricated content.
 
+For coding sessions, the scoring agent discovers repository identity without a
+user prompt by running `git rev-parse --show-toplevel` and
+`git remote get-url origin` in the session workspace. History imports repeat
+the lookup only for workspaces that the local history identifies and that still
+exist. The agent never guesses a URL from the repository basename, profile
+identity, or GitHub search.
+
+GitHub SSH and HTTPS remotes are canonicalized to
+`https://github.com/<owner>/<repo>`. Projects remain grouped by their sanitized
+basename. The aggregator exposes `github_url` only when all valid URL
+observations for that basename identify one repository; conflicting remotes
+leave the icon disabled. A legacy project becomes linkable only after a new
+session supplies a verified URL.
+
 ## Privacy and network implications
 
 - Raw prompts, full transcripts, source-code contents, credentials, environment
   values, tokens, private keys, and MCP configuration values are not added to
   profile facts.
-- Repository values are reduced to sanitized basenames.
+- Repository display values are reduced to sanitized basenames. Repository URLs
+  accept only credential-free GitHub.com SSH/HTTPS remotes and are reduced to a
+  canonical repository root.
 - MCP values are reduced to safe display names and categories; URLs and
   secret-like values are rejected.
 - Project summaries are bounded and reject secret-like values.
@@ -72,6 +90,8 @@ state rather than fabricated content.
 - The profile sections add no fetch, XHR, beacon, analytics SDK, or upload.
 - Inference reuses the existing scoring-model call; it does not add a separate
   outbound request.
+- Repository discovery is read-only, performs no GitHub API request, and the
+  canonical URL is not included in the scoring-model prompt.
 - Automatically inferred profile, toolkit, and project facts are removed from
   the compatibility public-profile REST route. Explicit hosted publication is
   required before recruiter-facing use.

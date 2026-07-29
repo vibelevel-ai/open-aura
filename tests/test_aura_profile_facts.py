@@ -6,10 +6,12 @@ from datetime import datetime, timezone
 from src.services.aura.aura_profile_facts import (
     aggregate_profile_facts,
     normalize_inferred_profile_facts,
+    sanitize_github_repository_url,
     sanitize_mcp_name,
     sanitize_repository_name,
     sanitize_summary,
 )
+from src.services.aura.contracts import WorkspaceContext
 
 
 NOW = datetime(2026, 7, 25, 12, 0, tzinfo=timezone.utc)
@@ -26,6 +28,7 @@ def row(
     skills: list[str] | None = None,
     mcp_servers: list[str] | None = None,
     repository: str | None = None,
+    repository_url: str | None = None,
     project_summary: str | None = None,
 ) -> dict:
     local_stats: dict = {}
@@ -38,6 +41,8 @@ def row(
         workspace_context["mcp_servers"] = mcp_servers
     if repository is not None:
         workspace_context["repository"] = repository
+    if repository_url is not None:
+        workspace_context["repository_url"] = repository_url
     if project_summary is not None:
         workspace_context["project_summary"] = project_summary
     return {
@@ -72,6 +77,51 @@ class SanitizationTests(unittest.TestCase):
         self.assertEqual(
             sanitize_repository_name("/home/person/work/private/open-aura"),
             "open-aura",
+        )
+
+    def test_github_repository_url_normalizes_supported_remotes(self) -> None:
+        expected = "https://github.com/vibelevel-ai/open-aura"
+        for remote in (
+            "git@github.com:vibelevel-ai/open-aura.git",
+            "ssh://git@github.com/vibelevel-ai/open-aura.git",
+            "https://github.com/vibelevel-ai/open-aura.git",
+        ):
+            with self.subTest(remote=remote):
+                self.assertEqual(sanitize_github_repository_url(remote), expected)
+
+    def test_github_repository_url_normalizes_owner_and_repository_case(self) -> None:
+        self.assertEqual(
+            sanitize_github_repository_url(
+                "https://GitHub.com/VibeLevel-AI/Open-Aura.git"
+            ),
+            "https://github.com/vibelevel-ai/open-aura",
+        )
+
+    def test_github_repository_url_rejects_unsafe_or_unsupported_values(self) -> None:
+        for remote in (
+            "https://user:token@github.com/vibelevel-ai/open-aura.git",
+            "https://github.com/vibelevel-ai/open-aura?tab=readme",
+            "https://github.com/vibelevel-ai/open-aura#readme",
+            "https://github.com/vibelevel-ai/open-aura/tree/main",
+            "https://gitlab.com/vibelevel-ai/open-aura",
+            "https://github.com/-invalid/open-aura",
+            "https://github.com/vibelevel-ai",
+        ):
+            with self.subTest(remote=remote):
+                self.assertIsNone(sanitize_github_repository_url(remote))
+
+    def test_workspace_context_canonicalizes_repository_url(self) -> None:
+        workspace = WorkspaceContext(
+            repository_url="git@github.com:vibelevel-ai/open-aura.git"
+        )
+        self.assertEqual(
+            workspace.repository_url,
+            "https://github.com/vibelevel-ai/open-aura",
+        )
+        self.assertIsNone(
+            WorkspaceContext(
+                repository_url="https://example.com/private/repository.git"
+            ).repository_url
         )
 
     def test_mcp_sanitization_rejects_urls_and_secret_like_values(self) -> None:
@@ -226,7 +276,65 @@ class AggregationTests(unittest.TestCase):
         self.assertEqual(projects[0]["name"], "open-aura")
         self.assertEqual(projects[0]["session_count"], 2)
         self.assertEqual(projects[0]["aura_score"], 8.0)
+        self.assertNotIn("github_url", projects[0])
         self.assertNotIn("/work", str(projects[0]))
+
+    def test_project_emits_one_verified_github_url_across_new_and_legacy_rows(
+        self,
+    ) -> None:
+        rows = [
+            row(
+                created_at="2026-07-25T09:00:00Z",
+                repository="open-aura",
+                repository_url="git@github.com:vibelevel-ai/open-aura.git",
+            ),
+            row(
+                created_at="2026-07-24T09:00:00Z",
+                repository="/work/open-aura",
+            ),
+            row(
+                created_at="2026-07-23T09:00:00Z",
+                repository="OPEN-AURA",
+                repository_url="https://github.com/vibelevel-ai/open-aura",
+            ),
+        ]
+        projects = aggregate_profile_facts(rows, now=NOW)["projects"]
+        self.assertEqual(len(projects), 1)
+        self.assertEqual(
+            projects[0]["github_url"],
+            "https://github.com/vibelevel-ai/open-aura",
+        )
+
+    def test_project_omits_github_url_when_same_name_has_conflicting_remotes(
+        self,
+    ) -> None:
+        rows = [
+            row(
+                created_at="2026-07-25T09:00:00Z",
+                repository="open-aura",
+                repository_url="https://github.com/vibelevel-ai/open-aura",
+            ),
+            row(
+                created_at="2026-07-24T09:00:00Z",
+                repository="open-aura",
+                repository_url="https://github.com/someone-else/open-aura",
+            ),
+        ]
+        project = aggregate_profile_facts(rows, now=NOW)["projects"][0]
+        self.assertNotIn("github_url", project)
+
+    def test_project_never_emits_an_invalid_repository_url(self) -> None:
+        project = aggregate_profile_facts(
+            [
+                row(
+                    created_at="2026-07-25T09:00:00Z",
+                    repository="open-aura",
+                    repository_url="https://example.com/private/open-aura",
+                )
+            ],
+            now=NOW,
+        )["projects"][0]
+        self.assertNotIn("github_url", project)
 
 
 if __name__ == "__main__":

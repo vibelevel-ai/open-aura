@@ -75,6 +75,7 @@ export interface AuraProject {
   summary?: string;
   session_count: number;
   aura_score: number;
+  github_url?: string;
 }
 
 export interface ProfileResponse {

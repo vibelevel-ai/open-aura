@@ -23,6 +23,7 @@
   ],
   "scripts": {
     "test:activity": "node --test src/components/aura/aura-activity-data.test.cjs",
+    "test:projects": "node --test src/components/aura/aura-projects.test.cjs",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

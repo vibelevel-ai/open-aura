@@ -21,6 +21,7 @@ from typing_extensions import TypedDict
 from pydantic import BaseModel, Field, field_validator
 
 from .aura_profile_facts import (
+    sanitize_github_repository_url,
     sanitize_mcp_name,
     sanitize_repository_name,
     sanitize_summary,
@@ -72,6 +73,10 @@ class WorkspaceContext(BaseModel):
     repository: Optional[str] = Field(
         None, description="Repository/project basename only; no local path or URL."
     )
+    repository_url: Optional[str] = Field(
+        None,
+        description="Canonical GitHub repository root; never a local path.",
+    )
     project_summary: Optional[str] = Field(
         None, max_length=240, description="Short redacted project description."
     )
@@ -86,6 +91,11 @@ class WorkspaceContext(BaseModel):
     @classmethod
     def _sanitize_repository(cls, value: Any) -> Optional[str]:
         return sanitize_repository_name(value)
+
+    @field_validator("repository_url", mode="before")
+    @classmethod
+    def _sanitize_repository_url(cls, value: Any) -> Optional[str]:
+        return sanitize_github_repository_url(value)
 
     @field_validator("mcp_servers", mode="before")
     @classmethod

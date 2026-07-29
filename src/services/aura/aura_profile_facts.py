@@ -7,11 +7,16 @@ import re
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, Iterable
+from urllib.parse import urlsplit
 
 
 SCALAR_FACT_KEYS = ("headline", "location", "experience", "availability")
 SOURCE_WEIGHTS = {"measured": 1.0, "inferred": 0.7}
 _SECRET_MARKERS = ("api_key", "apikey", "secret", "token=", "password", "bearer ")
+_GITHUB_OWNER_RE = re.compile(
+    r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?"
+)
+_GITHUB_REPOSITORY_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,99}")
 
 
 def _dict(value: Any) -> dict[str, Any]:
@@ -52,6 +57,50 @@ def sanitize_repository_name(value: Any) -> str | None:
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}", name):
         return None
     return name
+
+
+def sanitize_github_repository_url(value: Any) -> str | None:
+    """Return a canonical GitHub repository root for a supported remote."""
+    cleaned = _clean_label(value, limit=500)
+    if not cleaned:
+        return None
+
+    if cleaned.startswith("git@github.com:"):
+        repository_path = cleaned.removeprefix("git@github.com:")
+    else:
+        try:
+            parsed = urlsplit(cleaned)
+            port = parsed.port
+        except ValueError:
+            return None
+        if (
+            parsed.scheme not in {"https", "ssh"}
+            or (parsed.hostname or "").casefold() != "github.com"
+            or port is not None
+            or parsed.query
+            or parsed.fragment
+        ):
+            return None
+        if parsed.scheme == "https" and (parsed.username or parsed.password):
+            return None
+        if parsed.scheme == "ssh" and (
+            parsed.username != "git" or parsed.password is not None
+        ):
+            return None
+        repository_path = parsed.path.lstrip("/")
+
+    repository_path = repository_path.rstrip("/")
+    parts = repository_path.split("/")
+    if len(parts) != 2:
+        return None
+    owner, repository = parts
+    if repository.endswith(".git"):
+        repository = repository[:-4]
+    if not _GITHUB_OWNER_RE.fullmatch(owner):
+        return None
+    if not _GITHUB_REPOSITORY_RE.fullmatch(repository):
+        return None
+    return f"https://github.com/{owner.casefold()}/{repository.casefold()}"
 
 
 def sanitize_mcp_name(value: Any) -> str | None:
@@ -229,10 +278,16 @@ def aggregate_profile_facts(
                     "name": repository,
                     "summaries": [],
                     "scores": [],
+                    "github_urls": set(),
                     "session_count": 0,
                 },
             )
             project["session_count"] += 1
+            repository_url = sanitize_github_repository_url(
+                workspace.get("repository_url")
+            )
+            if repository_url:
+                project["github_urls"].add(repository_url)
             summary = sanitize_summary(workspace.get("project_summary"))
             if summary:
                 project["summaries"].append(summary)
@@ -274,8 +329,11 @@ def aggregate_profile_facts(
     for project in projects.values():
         scores = project.pop("scores")
         summaries = project.pop("summaries")
+        github_urls = project.pop("github_urls")
         if summaries:
             project["summary"] = summaries[0]
+        if len(github_urls) == 1:
+            project["github_url"] = next(iter(github_urls))
         project["aura_score"] = (
             round(sum(scores) / len(scores), 2) if scores else 0.0
         )
