@@ -15,12 +15,24 @@ export interface AuraViewerConfig {
    *  - 'signup' : funnel to VibeLevel sign-up — OSS-local profiles aren't shareable.
    */
   shareMode?: 'link' | 'signup';
+  /** Product edition; local enables local-only evidence sections. */
+  edition?: 'local' | 'hosted';
+  /** Explicit hosted Aura destination for publication. */
+  hostedAuraHref?: string;
+  /** Label for the explicit hosted publication action. */
+  publishProfileLabel?: string;
+  /** Whether to render the hosted publication boundary section. */
+  showHostedProfilePreview?: boolean;
 }
 
 export const DEFAULT_VIEWER_CONFIG: Required<AuraViewerConfig> = {
   signInLabel: 'Reveal your Aura →',
   signInHref: '/login?persona=builder&source=aura',
   shareMode: 'link',
+  edition: 'hosted',
+  hostedAuraHref: '/aura?source=open-aura&intent=publish-profile',
+  publishProfileLabel: 'Publish with VibeLevel Aura',
+  showHostedProfilePreview: false,
 };
 
 export function resolveViewerConfig(c?: AuraViewerConfig): Required<AuraViewerConfig> {

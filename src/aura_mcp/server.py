@@ -138,6 +138,13 @@ async def score_this_session(
             {"path": "relative/or/basename", "lang": "python",
              "bytes": 1024, "ops": "created"|"edited"|"read"}   # path + metadata only, NO contents
           ],
+          "workspace_context": {     # optional, automatically collected + sanitized
+            "repository": "open-aura",        # basename only; no local path or URL
+            "repository_url": "https://github.com/vibelevel-ai/open-aura",
+            "project_summary": "Local AI session scoring and profile viewer.",
+            "languages": ["Python", "TypeScript"],
+            "mcp_servers": ["GitHub", "Context7"]  # names/categories only
+          },
           "local_stats": {          # MEASURED telemetry — see "GATHER" below
             "tokens": {"total": 1250000, "human": 8000, "measured": True},
             "tools_used": {"Edit": 42, "Read": 30, "Agent": 12},
@@ -210,6 +217,25 @@ async def score_this_session(
         }
     This is OPT-IN and only acts when PFG grounding is configured server-side; omit
     it and scoring behaves exactly as before. It NEVER affects the Aura score.
+
+    WORKSPACE DISCOVERY — collect repository identity automatically; do NOT ask
+    the user and do NOT guess from a basename, profile name, or GitHub search.
+    For a coding session, run the read-only commands
+    ``git rev-parse --show-toplevel`` and ``git remote get-url origin`` in the
+    session workspace. Put the returned GitHub SSH/HTTPS remote in
+    ``workspace_context.repository_url``; the server independently reduces it
+    to ``https://github.com/<owner>/<repo>``. During history import, perform the
+    same lookup only when the history source identifies a local workspace that
+    still exists. If the directory is not a Git repository, has no ``origin``,
+    no longer exists, or uses an unsupported host, omit ``repository_url`` and
+    continue scoring.
+
+    WORKSPACE PRIVACY — send only repository basenames, canonical GitHub
+    repository roots, short redacted summaries, language labels, and MCP display
+    names/categories. Never send local absolute paths, remote URLs containing
+    credentials, MCP URLs/configuration values, environment variables, API keys,
+    access tokens, or private keys. Workspace context is stored locally and is
+    not included in the scoring-model prompt.
 
     RETURNS a ScoreResult dict: ``aura_score`` (0-10), ``aura_level``
     (Emerging | Capable | Strong | Exceptional), ``archetype``,

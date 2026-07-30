@@ -39,6 +39,7 @@ from .aura_signal_extractor import (
     session_fingerprint,
 )
 from .pfg_client import ground_session as pfg_ground_session
+from .aura_profile_facts import normalize_inferred_profile_facts
 
 logger = logging.getLogger(__name__)
 
@@ -314,6 +315,11 @@ class AuraScoringService(AuraScorer):
         # 8. Cards — telemetry/score cards from the signal extractor + the
         #    LLM's qualitative cards (go_to_phrase / signature / growth_edge).
         telemetry = self._build_telemetry(evidence)
+        profile_facts = normalize_inferred_profile_facts(
+            llm_response.get("profile_facts")
+        )
+        if profile_facts:
+            telemetry["profile_facts"] = profile_facts
         llm_cards = self._extract_llm_cards(llm_response, modality)
         # Lifecycle stages the scoring LLM detected (robust to phrasing). Unioned
         # with the deterministic floor inside build_session_cards for the
@@ -374,6 +380,7 @@ class AuraScoringService(AuraScorer):
             # score_evidence overwrites it with real PFG check-tips when grounding
             # runs against a configured graph.
             "pfg_check_tips": [],
+            "profile_facts": profile_facts,
         }
         logger.info(
             "[AURA-SCORING] Done fp=%s -> session_id=%s score=%s level=%s "
@@ -628,6 +635,28 @@ class AuraScoringService(AuraScorer):
         response_schema = {
             "dimensions": dim_example,
             "lifecycle_stages": life_stages[:2] + ["..."],
+            "profile_facts": {
+                "headline": {
+                    "value": "short professional headline inferred from this session",
+                    "confidence": 0.0,
+                    "evidence": "short explanation based only on the redacted evidence",
+                },
+                "location": {
+                    "value": "location only when explicitly evidenced; otherwise empty",
+                    "confidence": 0.0,
+                    "evidence": "short explanation",
+                },
+                "experience": {
+                    "value": "experience level/pattern inferred from demonstrated work",
+                    "confidence": 0.0,
+                    "evidence": "short explanation",
+                },
+                "availability": {
+                    "value": "hiring availability only when explicitly evidenced; otherwise empty",
+                    "confidence": 0.0,
+                    "evidence": "short explanation",
+                },
+            },
             "cards": {
                 "go_to_phrase": "the human's most characteristic/most-used prompt phrase, verbatim and short",
                 "signature": "one short sentence naming this person's signature working move",
@@ -642,6 +671,11 @@ class AuraScoringService(AuraScorer):
         parts.append("RULES:")
         parts.append("- Every dimension score is a float in [0.0, 10.0].")
         parts.append("- `reasoning` cites specific transcript/file evidence (1-2 sentences).")
+        parts.append(
+            "- `profile_facts` are optional in substance: use an empty string and "
+            "0 confidence when the redacted evidence does not support a fact. "
+            "Never invent location, availability, or experience."
+        )
         parts.append("- `cards.go_to_phrase` must be a short verbatim phrase from the human's own messages.")
         parts.append("- `lifecycle_stages` lists ONLY stages with explicit evidence (may be empty).")
         parts.append("- Where evidence is thin, score conservatively and say so in the reasoning.")

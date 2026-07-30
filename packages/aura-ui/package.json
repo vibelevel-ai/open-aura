@@ -22,7 +22,12 @@
     "src"
   ],
   "scripts": {
+    "test:activity": "node --test src/components/aura/aura-activity-data.test.cjs",
+    "test:projects": "node --test src/components/aura/aura-projects.test.cjs",
     "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
   },
   "peerDependencies": {
     "@radix-ui/react-dialog": "^1.1.15",

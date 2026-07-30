@@ -47,6 +47,35 @@ export interface ScoreResult {
   human_contribution_label: string;
   model_version: string;
   profile_delta: Record<string, unknown>;
+  profile_facts?: Record<string, ProfileFact>;
+}
+
+export interface ProfileFact {
+  value: string;
+  confidence: number;
+  source: "measured" | "inferred" | string;
+  observations?: number;
+}
+
+export interface ToolkitEntry {
+  name: string;
+  count: number;
+}
+
+export interface AuraToolkit {
+  sources?: Record<string, number>;
+  models?: Record<string, number>;
+  tools?: ToolkitEntry[];
+  skills?: ToolkitEntry[];
+  mcp_servers?: ToolkitEntry[];
+}
+
+export interface AuraProject {
+  name: string;
+  summary?: string;
+  session_count: number;
+  aura_score: number;
+  github_url?: string;
 }
 
 export interface ProfileResponse {
@@ -85,6 +114,12 @@ export interface ProfileResponse {
   // True when the user takes the majority of their sessions through to a
   // shipped/delivered outcome (drives the overall "Ships it" hero badge).
   ships_it?: boolean;
+  // Evidence-weighted facts inferred from redacted session evidence.
+  profile_facts?: Record<string, ProfileFact>;
+  // Measured local session metadata; absent when a source cannot report it.
+  toolkit?: AuraToolkit;
+  // Repository-grouped evidence. Names are sanitized basenames, never paths.
+  projects?: AuraProject[];
 }
 
 // Leaderboard Aura view row

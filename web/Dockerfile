@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 # Open Aura viewer — Next.js host that renders @vibelevel/aura-ui. The build
 # context is the REPO ROOT (it's an npm workspace: packages/aura-ui + web).
 #   docker build -f web/Dockerfile .
@@ -7,7 +8,15 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY packages/aura-ui/package.json ./packages/aura-ui/package.json
 COPY web/package.json ./web/package.json
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci \
+      --prefer-offline \
+      --no-audit \
+      --no-fund \
+      --fetch-retries=5 \
+      --fetch-retry-mintimeout=10000 \
+      --fetch-retry-maxtimeout=60000 \
+      --fetch-timeout=120000
 # Sources, then build the web workspace.
 COPY packages ./packages
 COPY web ./web

@@ -11,7 +11,7 @@ Open Aura is an [MCP](https://modelcontextprotocol.io) server your agent (Claude
 ## Quickstart (Docker)
 
 ```bash
-cp .env.example .env          # then set ONE provider key (e.g. GROQ_API_KEY)
+cp .env.example .env          # then set OPENAI_API_KEY to your OpenCode key
 docker compose up             # Postgres + backend (MCP :8090) + viewer (:3000)
 ```
 
@@ -46,6 +46,7 @@ The redaction contract is the whole point: **raw transcripts and file contents n
 |---|---|---|
 | `AURA_SCORING_MODEL` | `openai/gpt-oss-120b` | scoring model (provider routing in `model_config.json`) |
 | `OPENAI_API_KEY` / `GROQ_API_KEY` / `ANTHROPIC_API_KEY` | — | bring your own; set the one your model uses |
+| `OPENAI_BASE_URL` | OpenAI default | optional OpenAI-compatible endpoint (for OpenCode, use `https://opencode.ai/zen/v1`) |
 | `POSTGRES_URL` | compose-provided | local Postgres (apply `schema.sql` for bare-metal) |
 | `AURA_MCP_PORT` | `8090` | MCP server port |
 

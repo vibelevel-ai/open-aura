@@ -19,5 +19,13 @@ out/
 next-env.d.ts
 npm-debug.log*
 
+# local agent instructions and generated analysis
+AGENTS.md
+.agents/
+.codex/
+.serena/
+.bug-hunter/
+docs/superpowers/
+
 # os
 .DS_Store
