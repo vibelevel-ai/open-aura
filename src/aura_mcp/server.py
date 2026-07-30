@@ -242,7 +242,10 @@ async def score_this_session(
     ``dimension_scores`` (per-dimension score + reasoning), ``cards``
     (session-scope insight cards), ``human_contribution_label``,
     ``model_version``, and ``profile_delta`` (how this session moved the user's
-    running Aura). Show the user their score + the headline cards.
+    running Aura). ALSO returns ``pfg_check_tips`` when PFG grounding is
+    configured — ADVISORY operational insights the server derived from your
+    ``local_context`` (read them and present them to the user). Show the user
+    their score + the headline cards + any PFG check-tips.
 
     Idempotent: the server fingerprints on (source, start time, first prompt),
     so re-scoring the same session won't double-count it.
