@@ -71,6 +71,11 @@ def create_llm_instance(model_name: str, model_config: ModelSettings, **override
             api_key = os.getenv("OPENAI_API_KEY")
             if api_key:
                 llm_kwargs["openai_api_key"] = api_key
+
+        if "base_url" not in llm_kwargs:
+            base_url = os.getenv("OPENAI_BASE_URL")
+            if base_url:
+                llm_kwargs["base_url"] = base_url
         
         return ChatOpenAI(**llm_kwargs)
         

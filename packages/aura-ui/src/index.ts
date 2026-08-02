@@ -6,7 +6,10 @@
 
 // ── Primary public surface ────────────────────────────────────────────────
 export { AuraProfile } from './components/aura/aura-profile';
-export { PublicAuraShell } from './components/aura/public-aura-shell';
+export { PublicAuraShell, PublicAuraHeader } from './components/aura/public-aura-shell';
+export { LocalAuraShell } from './components/aura/local-aura-shell';
+export { AuraSidebar, type AuraSidebarSummary } from './components/aura/aura-sidebar';
+export { AuraSessionList } from './components/aura/aura-session-list';
 export { AuraLeaderboard } from './components/aura/aura-leaderboard';
 export { AuraRadar, type RadarDimension } from './components/aura/aura-radar';
 
@@ -15,7 +18,7 @@ export { InsightCard, InsightCardGrid } from './components/aura/insight-card';
 export { AuraGuide } from './components/aura/aura-guide';
 export { VibeLevelLogo } from './components/vibelevel-logo';
 
-// ── Edition config (SaaS vs OSS funnel differences) ───────────────────────
+// ── Edition config (viewer funnel knobs) ─────────────────────────────────
 export {
   type AuraViewerConfig,
   DEFAULT_VIEWER_CONFIG,

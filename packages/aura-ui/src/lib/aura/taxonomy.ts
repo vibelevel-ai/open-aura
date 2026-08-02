@@ -44,7 +44,7 @@ export const AURA_ARCHETYPES: Record<'coding' | 'noncoding', AuraArchetype[]> = 
   ],
 };
 
-// The 0-10 dimensions a session is scored on (display labels match the dashboard).
+// The 0-10 dimensions a session is scored on (display labels for the profile).
 export const AURA_DIMENSION_LABELS = [
   'Prompting',
   'AI Collaboration',

@@ -18,7 +18,14 @@ from typing import Any, Literal, Optional, Protocol, runtime_checkable
 # pydantic raises PydanticUserError on `typing.TypedDict` under 3.11.
 from typing_extensions import TypedDict
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from .aura_profile_facts import (
+    sanitize_github_repository_url,
+    sanitize_mcp_name,
+    sanitize_repository_name,
+    sanitize_summary,
+)
 
 Modality = Literal["coding", "noncoding"]
 # Canonical agent sources (mirrors agent_registry.AGENT_CAPABILITIES). The MCP
@@ -60,6 +67,146 @@ class FileTouched(BaseModel):
     ops: Optional[str] = Field(None, description="e.g. 'created' | 'edited' | 'read'.")
 
 
+# ===========================================================================
+# PFG OPERATIONAL INSIGHTS (Open Aura POC) — local-context grounding.
+#
+# The hosted edition can only score a REDACTED packet, so it had to ask the
+# agent to self-report tags; weak guesses → weak grounding. Open Aura runs
+# locally, so it can pass the UNREDACTED `LocalContext` (real git diff + full
+# transcript + manifests) and derive high-quality tags server-side, then ground
+# them against a Product Feature Graph into advisory "check-tips".
+#
+# IMPORTANT: `LocalContext` is a SEPARATE argument to `score_this_session` — it
+# is NOT part of `EvidencePacket`, so it is never persisted, never fingerprinted,
+# and never fed to the scoring LLM. It stays on the user's machine, used only
+# transiently to extract tags. Tags NEVER affect the Aura score.
+# ===========================================================================
+
+# Each tag category maps to the PFG node type(s) it resolves against.
+TagCategory = Literal[
+    "library",       # SDK/framework/package          -> product / product_line / feature
+    "service",       # external service / integration -> external_system
+    "model",         # model / provider              -> external_system
+    "infra",         # internal stack component      -> tech_component
+    "capability",    # capability / feature built    -> capability / feature
+    "pattern",       # architecture pattern          -> capability
+    "work_area",     # concern touched (db-access, auth, endpoint) -> standard / agent_skill
+    "product_area",  # part of the user's OWN product -> feature / sub_feature / product_line
+]
+# How the tag was actually observed in the session — MUST be real evidence.
+# `discussion` is the weakest basis and is treated as low evidence (not surfaced).
+EvidenceBasis = Literal["import", "file", "command", "discussion"]
+# HOW a capability/pattern was implemented. "established" forms (sdk/library/
+# framework) vs "hand-rolled" forms (direct-api/manual/custom) — the hand-rolled
+# ones let the graph suggest the established tool it maps.
+ApproachType = Literal["sdk", "library", "framework", "direct-api", "manual", "custom"]
+
+
+class PfgTag(BaseModel):
+    """An evidence-derived signal extracted from the session, to be grounded
+    against the Product Feature Graph. NAMES + CATEGORIES ONLY — no code/prompts.
+    In Open Aura these are derived LOCALLY from the real diff/transcript, not
+    self-reported by the agent. Resolved read-only; never feeds the LLM score."""
+    name: str = Field(..., description="Normalized tag, e.g. 'langchain', 'mcp', 'db-access'.")
+    category: TagCategory
+    evidence_basis: EvidenceBasis = Field(
+        "file",
+        description="How it was seen in THIS session (import | file | command | "
+                    "discussion).",
+    )
+    approach: Optional[ApproachType] = Field(
+        None,
+        description="HOW a capability/pattern was implemented, when relevant: a "
+                    "hand-rolled value (direct-api | manual | custom) when something "
+                    "an established SDK/framework usually handles was built by hand, "
+                    "else sdk | library | framework.",
+    )
+
+
+class LocalContext(BaseModel):
+    """UNREDACTED, local-only context used ONLY for PFG operational grounding.
+
+    Open Aura's divergence from the hosted edition: because everything stays on
+    the user's machine, the agent can pass the REAL artifacts so the server can
+    derive accurate tags. This is NEVER persisted, fingerprinted, or scored — it
+    is consumed transiently by the local extractor and discarded. All fields
+    optional; send what the session has.
+    """
+    git_diff: Optional[str] = Field(
+        None, description="Real `git diff` (working tree or session range) — full text.")
+    full_transcript: Optional[str] = Field(
+        None, description="Full, unredacted session transcript text.")
+    manifests: dict[str, str] = Field(
+        default_factory=dict,
+        description="filename -> raw contents for dependency manifests touched/present "
+                    "(package.json, requirements.txt, pyproject.toml, go.mod, Cargo.toml).")
+    commands: list[str] = Field(
+        default_factory=list, description="Shell commands actually run this session.")
+    repo: Optional[str] = Field(
+        None, description="Repo name/label for context (no contents).")
+
+
+class WorkspaceContext(BaseModel):
+    """Automatically collected, sanitized workspace metadata for local profiles."""
+
+    repository: Optional[str] = Field(
+        None, description="Repository/project basename only; no local path or URL."
+    )
+    repository_url: Optional[str] = Field(
+        None,
+        description="Canonical GitHub repository root; never a local path.",
+    )
+    project_summary: Optional[str] = Field(
+        None, max_length=240, description="Short redacted project description."
+    )
+    languages: list[str] = Field(default_factory=list, max_length=24)
+    mcp_servers: list[str] = Field(
+        default_factory=list,
+        max_length=32,
+        description="Display names/categories only; never URLs or credentials.",
+    )
+
+    @field_validator("repository", mode="before")
+    @classmethod
+    def _sanitize_repository(cls, value: Any) -> Optional[str]:
+        return sanitize_repository_name(value)
+
+    @field_validator("repository_url", mode="before")
+    @classmethod
+    def _sanitize_repository_url(cls, value: Any) -> Optional[str]:
+        return sanitize_github_repository_url(value)
+
+    @field_validator("mcp_servers", mode="before")
+    @classmethod
+    def _sanitize_mcp_servers(cls, value: Any) -> list[str]:
+        if not isinstance(value, list):
+            return []
+        return [
+            cleaned
+            for item in value
+            if (cleaned := sanitize_mcp_name(item)) is not None
+        ]
+
+    @field_validator("project_summary", mode="before")
+    @classmethod
+    def _sanitize_project_summary(cls, value: Any) -> Optional[str]:
+        return sanitize_summary(value)
+
+    @field_validator("languages", mode="before")
+    @classmethod
+    def _sanitize_languages(cls, value: Any) -> list[str]:
+        if not isinstance(value, list):
+            return []
+        cleaned: list[str] = []
+        for item in value:
+            if not isinstance(item, str):
+                continue
+            label = " ".join(item.strip().split())
+            if label and len(label) <= 40:
+                cleaned.append(label)
+        return cleaned[:24]
+
+
 class EvidencePacket(BaseModel):
     """What `score_this_session` / `import_history` receive per session."""
     source: Source
@@ -87,6 +234,7 @@ class EvidencePacket(BaseModel):
     #   skills_used: ["/code-review", "deep-research", ...]
     #   plan_mode: bool               # used an explicit plan/architect mode
     local_stats: dict[str, Any] = Field(default_factory=dict)
+    workspace_context: WorkspaceContext = Field(default_factory=WorkspaceContext)
 
     def fingerprint_basis(self) -> str:
         first_user = next((t.text_excerpt for t in self.turns if t.role == "user"), "")
@@ -124,6 +272,8 @@ class ScoreResult(TypedDict, total=False):
     human_contribution_label: str
     model_version: str
     profile_delta: dict[str, Any]           # change vs the user's running profile
+    pfg_check_tips: list[dict]              # advisory PFG-grounded operational tips (never scored)
+    profile_facts: dict[str, Any]           # inferred facts from this session
 
 
 class SessionSummary(TypedDict, total=False):
@@ -158,6 +308,9 @@ class ProfileResponse(TypedDict, total=False):
     stats: dict  # {avg_tokens_per_session, avg_prompts_per_session, top_model, total_tokens}
     benchmarks: dict  # personal-relative benchmarks
     dimension_trends: dict[str, list[float]]  # last-N per-dimension score series
+    profile_facts: dict[str, Any]  # evidence-weighted identity/hiring facts
+    toolkit: dict[str, Any]  # measured agents/models/tools/skills/MCP summaries
+    projects: list[dict[str, Any]]  # repository-grouped local project evidence
     ships_it: bool  # majority of sessions taken through to a shipped/delivered outcome
 
 

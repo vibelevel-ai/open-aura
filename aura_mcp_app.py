@@ -47,6 +47,12 @@ from src.aura_mcp.server import mcp as mcp_server
 from src.core.config import config
 from src.core.database_sync import close_pool, get_pool, test_database_connection
 from src.core.model_config import init_model_config
+from src.services.aura.pfg_client import pfg_status
+
+# Backend version (keep in sync with package.json) + a build label so you can tell
+# WHICH build is running. Override the label per build/branch via AURA_BUILD.
+__version__ = "0.1.0"
+_BUILD = os.getenv("AURA_BUILD", "pfg-insights-poc")
 
 def _configure_logging() -> None:
     """Central log-verbosity control for the sidecar.
@@ -131,6 +137,25 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def _lifespan(app: FastAPI):
         logger.info("[AuraMCP] starting (env=%s, mount=%s)", config.environment, _MOUNT_PATH)
+        logger.info("[Open Aura] backend v%s · build=%s", __version__, _BUILD)
+        # PFG operational insights — surface ON/OFF + reachability so the user
+        # knows at a glance whether grounding is wired. Best-effort; never blocks.
+        try:
+            ps = pfg_status(probe=True)
+            if not ps["enabled"]:
+                logger.info("[Open Aura] PFG insights: OFF "
+                            "(set PFG_GROUNDING_ENABLED=true to enable)")
+            elif not ps["configured"]:
+                logger.warning("[Open Aura] PFG insights: ON but NOT configured "
+                               "— PFG_MCP_URL is empty")
+            else:
+                reach = ("reachable ✓" if ps["reachable"]
+                         else "UNREACHABLE ✗ (check PFG_MCP_URL/PFG_MCP_TOKEN)")
+                logger.info("[Open Aura] PFG insights: ON · %s · ws=%s · %s · "
+                            "extract-LLM=%s", ps["host"], ps["workspace"], reach,
+                            "on" if ps["extract_llm"] else "off")
+        except Exception as exc:
+            logger.debug("[Open Aura] PFG status line skipped: %s", exc)
         # Warm the shared psycopg2 pool and fail fast if the DB is unreachable.
         get_pool()
         if not test_database_connection():
@@ -146,8 +171,8 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="VibeLevel Aura MCP",
         description=(
-            "Standalone MCP connector for VibeLevel Aura. Agents score real "
-            "local AI work sessions via a bearer PAT."
+            "Standalone MCP connector for Open Aura. Agents score real local "
+            "AI work sessions — single local user, no login."
         ),
         version="0.1.0",
         lifespan=_lifespan,

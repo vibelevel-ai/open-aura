@@ -1,6 +1,6 @@
 /** @type {import('tailwindcss').Config} */
-// Mirrors the SaaS theme mapping (shadcn tokens → CSS vars). Content scans both
-// the host app AND the shared package source so its utility classes are emitted.
+// Maps the shadcn design tokens → CSS vars used by the viewer. Content scans both
+// the host app AND the aura-ui package source so its utility classes are emitted.
 module.exports = {
   darkMode: ['class'],
   content: [

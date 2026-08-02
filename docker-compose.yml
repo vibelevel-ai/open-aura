@@ -34,14 +34,23 @@ services:
       AURA_LOCAL_MODE: "true"
       POSTGRES_URL: postgresql://aura:aura@aura-db:5432/aura
       AURA_MCP_PORT: "8090"
+      AURA_BUILD: ${AURA_BUILD:-pfg-insights-poc}
       AURA_SCORING_MODEL: ${AURA_SCORING_MODEL:-openai/gpt-oss-120b}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # PFG operational insights (experimental, off by default). Read by
+      # src/services/aura/pfg_client.py at first grounding call.
+      PFG_GROUNDING_ENABLED: ${PFG_GROUNDING_ENABLED:-false}
+      PFG_MCP_URL: ${PFG_MCP_URL:-}
+      PFG_MCP_TOKEN: ${PFG_MCP_TOKEN:-}
+      PFG_WORKSPACE: ${PFG_WORKSPACE:-vibelevel}
+      PFG_EXTRACT_LLM: ${PFG_EXTRACT_LLM:-true}
     ports:
       - "8090:8090"   # MCP backend + REST API (agents connect here)
 
-  # Next.js viewer: renders the shared @vibelevel/aura-ui package against the
+  # Next.js viewer: renders Open Aura's @vibelevel/aura-ui package against the
   # backend. Browser fetches /api/aura/* are proxied to aura-app internally.
   aura-ui:
     build:

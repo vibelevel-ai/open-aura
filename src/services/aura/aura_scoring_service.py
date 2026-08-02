@@ -38,6 +38,8 @@ from .aura_signal_extractor import (
     classify_modality,
     session_fingerprint,
 )
+from .pfg_client import ground_session as pfg_ground_session
+from .aura_profile_facts import normalize_inferred_profile_facts
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +83,7 @@ class AuraScoringService(AuraScorer):
     # -- public API ---------------------------------------------------------
 
     async def score_evidence(
-        self, user_id: str, evidence: EvidencePacket
+        self, user_id: str, evidence: EvidencePacket, local_context=None
     ) -> ScoreResult:
         """Score one real AI work session, referencelessly.
 
@@ -89,15 +91,37 @@ class AuraScoringService(AuraScorer):
         prompt -> call LLM -> parse dimension scores + qualitative cards ->
         weighted overall -> engagement dampening -> labels -> cards ->
         persist AuraSession (upsert on (user_id, fingerprint)) -> profile_delta.
+
+        ``local_context`` (Open Aura only) is the UNREDACTED real diff/transcript,
+        used solely for best-effort PFG operational grounding. It is NOT scored,
+        persisted, or fingerprinted.
         """
         fingerprint = session_fingerprint(evidence)
         ingested_via = "mcp"
-        return await self._score_one(
+        result = await self._score_one(
             user_id=user_id,
             evidence=evidence,
             fingerprint=fingerprint,
             ingested_via=ingested_via,
         )
+        # Best-effort PFG grounding → advisory check-tips (operational insights).
+        # Single-session only (NOT bulk import). Off by default + env-gated; runs
+        # off-thread (the extractor's LLM call + urllib transport are blocking);
+        # never affects the score and never raises. The keys are ALWAYS present
+        # (empty when off/skipped) so the MCP output schema validates — a missing
+        # key would be coerced to null and rejected against `type: object`.
+        result.setdefault("pfg_check_tips", [])
+        result.setdefault("profile_facts", {})
+        if local_context is not None:
+            try:
+                tips = await asyncio.to_thread(
+                    pfg_ground_session, local_context, evidence
+                )
+                if tips:
+                    result["pfg_check_tips"] = tips
+            except Exception as exc:
+                logger.debug("[AURA-PFG] grounding skipped: %s", exc)
+        return result
 
     async def import_sessions(
         self, user_id: str, packets: List[EvidencePacket]
@@ -148,12 +172,13 @@ class AuraScoringService(AuraScorer):
             # One bad/slow packet must never abort the whole batch.
             async with sem:
                 try:
-                    return await self._score_one(
+                    result = await self._score_one(
                         user_id=user_id,
                         evidence=packet,
                         fingerprint=fingerprint,
                         ingested_via="import",
                     )
+                    return result
                 except Exception as exc:
                     logger.error(
                         "[AURA-SCORING] import_sessions: packet %s failed: %s",
@@ -295,6 +320,11 @@ class AuraScoringService(AuraScorer):
         # 8. Cards — telemetry/score cards from the signal extractor + the
         #    LLM's qualitative cards (go_to_phrase / signature / growth_edge).
         telemetry = self._build_telemetry(evidence)
+        profile_facts = normalize_inferred_profile_facts(
+            llm_response.get("profile_facts")
+        )
+        if profile_facts:
+            telemetry["profile_facts"] = profile_facts
         llm_cards = self._extract_llm_cards(llm_response, modality)
         # Lifecycle stages the scoring LLM detected (robust to phrasing). Unioned
         # with the deterministic floor inside build_session_cards for the
@@ -610,6 +640,29 @@ class AuraScoringService(AuraScorer):
                 "signature": "one short sentence naming this person's signature working move",
                 "growth_edge": "one short sentence naming the single biggest thing they could improve",
             },
+            "profile_facts": {
+                "headline": {
+                    "value": "short professional headline inferred from this session",
+                    "confidence": 0.0,
+                    "evidence": "short explanation based only on the redacted evidence",
+                },
+                "location": {
+                    "value": "location only when explicitly evidenced; otherwise empty",
+                    "confidence": 0.0,
+                    "evidence": "short explanation",
+                },
+                "experience": {
+                    "value": "experience level/pattern inferred from demonstrated work",
+                    "confidence": 0.0,
+                    "evidence": "short explanation",
+                },
+                "availability": {
+                    "value": "hiring availability only when explicitly evidenced; otherwise empty",
+                    "confidence": 0.0,
+                    "evidence": "short explanation",
+                },
+            },
+            "pfg_check_tips": [],
         }
         parts.append("")
         parts.append("## RESPONSE FORMAT")
@@ -622,6 +675,9 @@ class AuraScoringService(AuraScorer):
         parts.append("- `cards.go_to_phrase` must be a short verbatim phrase from the human's own messages.")
         parts.append("- `lifecycle_stages` lists ONLY stages with explicit evidence (may be empty).")
         parts.append("- Where evidence is thin, score conservatively and say so in the reasoning.")
+        parts.append("- `profile_facts` are optional in substance: use an empty string and "
+        "0 confidence when the redacted evidence does not support a fact. "
+        "Never invent location, availability, or experience.")
         parts.append("- Output ONLY the JSON object, no prose before or after.")
 
         return "\n".join(parts)
@@ -992,6 +1048,7 @@ class AuraScoringService(AuraScorer):
             "model_version": model_version,
             "profile_delta": {"delta": None, "prior_avg": None, "new_score": 0.0,
                               "is_first_session": False, "status": "scoring_failed"},
+            "pfg_check_tips": [],
         }
 
 

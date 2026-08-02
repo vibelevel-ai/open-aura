@@ -2,21 +2,16 @@
 
 // VibeLevel Aura — dimension radar.
 //
-// Adapted from the dashboard radar in `components/overview_v2.tsx`
-// (`RadarChart`, lines ~232-337) and the per-dimension bars in
-// `components/assessment/score-report.tsx`. That component is module-private
-// (not exported) and hardcodes the 4 assessment dimensions, so per the spec we
-// *re-implement the same SVG math/approach* here rather than importing it:
+// A small dependency-free SVG radar for an arbitrary, ordered list of Aura
+// dimensions (the referenceless dimension set differs coding vs non-coding, so
+// the count is variable):
 //   · concentric ring "levels" + radial axis lines
 //   · score (0-10) → radius via (score / 10) * maxR
 //   · axes evenly distributed starting from the top (-90°)
 //   · a filled data polygon + per-vertex dots + outer axis labels
 //
-// The only real difference: Aura's referenceless dimension set is variable in
-// length (the rubric-free subset differs coding vs non-coding), so we accept an
-// arbitrary ordered list of dimensions instead of the fixed 4, and we use the
-// Aura accent (violet) rather than the dashboard teal so the two scores read as
-// distinct (verified vs unverified — see spec decision #16).
+// Drawn in the Aura accent (VibeLevel green, #00e676) per the white/green/dark
+// palette.
 
 export interface RadarDimension {
   key: string;

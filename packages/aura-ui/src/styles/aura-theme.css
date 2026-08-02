@@ -1,9 +1,8 @@
 /* ===================================================================
    VibeLevel Aura UI — theme tokens
-   Extracted from the SaaS monorepo's app/globals.css (the "VibeCoder
-   Assessment IDE Theme" block). The Aura components reference these
-   `--vibecoder-*` CSS variables, the `.vibecoder-ide` scope (used by
-   PublicAuraShell), and the `.vibecoder-panel` utility (used by
+   The "VibeCoder" dark theme the Aura viewer is built on. The components
+   reference these `--vibecoder-*` CSS variables, the `.vibecoder-ide`
+   scope (used by the shell), and the `.vibecoder-panel` utility (used by
    AuraLeaderboard). Import this once in the host app so the package is
    self-contained for theming. Tailwind utility classes still need the
    host's Tailwind build; this file only provides the design tokens those
