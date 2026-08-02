@@ -33,7 +33,9 @@ export interface SessionSummary {
   aura_score: number;
   aura_level?: string; // Emerging | Capable | Strong | Exceptional
   archetype: string;
-  created_at: string;
+  started_at?: string; // when the work actually started (from evidence); may be ""
+  ended_at?: string; // when the work actually ended (from evidence); may be ""
+  created_at: string; // when the session was scored (row ingested)
   ships_it?: boolean; // lifecycle card marks the work shipped/delivered end-to-end
 }
 

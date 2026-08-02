@@ -1,11 +1,15 @@
 # PFG Operational Insights — Open Aura POC
 
-**Branch:** `pfg-insights-poc` · **Status:** experimental, opt-in, off by default.
+**Status:** experimental · opt-in · off by default.
 
 Open Aura can ground a scored session against a **Product Feature Graph (PFG)** and
 return advisory **check-tips** — *current-vs-legacy*, *hand-rolled-vs-established-SDK*,
 *a standard or skill to adopt*, or *a graph gap you should add*. Tips are **advisory
 only**: they never change your Aura score.
+
+In plain terms: the graph already maps the tools builders use — **Claude skills,
+LangChain, the OpenAI SDK, MCP servers**, and more — so your session gets specific
+"use this instead" nudges grounded in real tooling, rather than just a number.
 
 ## Why this lives in Open Aura, not the hosted edition
 
@@ -53,6 +57,39 @@ All env-gated; see `.env.example`:
 
 With grounding disabled (the default) or `local_context` omitted, scoring behaves
 exactly as before — this feature is purely additive.
+
+## Getting access (endpoint + token)
+
+Grounding talks to VibeLevel's hosted **VibeGraph** MCP over streamable-HTTP. Access is
+**read-only** and needs a Personal Access Token (PAT):
+
+1. Sign in at **[graph.vibelevel.ai](https://graph.vibelevel.ai)**.
+2. Create or open a workspace. For operational insights, the public catalog
+   **`public-graphs-by-vibelevel`** (SDKs / frameworks + Claude skills) is the best
+   target — it's what powers the *improve*, *currency*, and *adopt* tips. (Point
+   `PFG_WORKSPACE` at your **own** product graph instead only if you also want *graph
+   gap* tips; those are suppressed for catalogs you don't curate.)
+3. Go to **Account → Tokens** and generate a token — it looks like `pfg_…`. PATs are
+   user-scoped: one token works across every workspace you can read.
+
+Then set these in your `.env` and rebuild the backend (`docker compose up -d --build`):
+
+```dotenv
+PFG_GROUNDING_ENABLED=true
+PFG_MCP_URL=https://graphapi.vibelevel.ai/mcp
+PFG_MCP_TOKEN=pfg_your_token_here
+PFG_WORKSPACE=public-graphs-by-vibelevel
+```
+
+You do **not** need to add the `Bearer ` prefix — Open Aura adds it. On startup the
+backend logs a status line so you can confirm it's wired:
+
+```
+[Open Aura] PFG insights: ON · graphapi.vibelevel.ai · ws=public-graphs-by-vibelevel · reachable ✓ · extract-LLM=on
+```
+
+`reachable ✗` means the URL, token, or workspace is wrong — grounding then silently
+no-ops (it never breaks scoring).
 
 ## Boundaries / design rules
 

@@ -303,19 +303,30 @@ class AuraScoringService(AuraScorer):
         # 5. Engagement dampening — cap craft/output dims when substance is thin.
         self._apply_dampening(dimension_scores, engagement_level, model)
 
-        # 6. Weighted overall (post-dampening) + Aura band label.
+        # 6. Weighted overall (post-dampening).
         overall = 0.0
         for dim_key, weight in weights.items():
             overall += dimension_scores.get(dim_key, {}).get("score", 0.0) * weight
         overall = round(overall, 2)
+
+        # 7. Human-contribution meta-label + HC score cap. The overall Aura cannot
+        #    exceed the ceiling of the human-contribution band — a strong-craft
+        #    session with weak human contribution can't buy a high overall score;
+        #    the top (Vibe Coder) band is uncapped. See get_hc_score_cap. The Aura
+        #    band label is then derived from the CAPPED overall.
+        hc_score = dimension_scores.get("human_contribution", {}).get("score", 0.0)
+        hc_label = model.get_human_contribution_label(hc_score)
+        hc_cap = model.get_hc_score_cap(hc_score)
+        if overall > hc_cap:
+            logger.info(
+                "[AURA-SCORING] HC cap: overall %s -> %s (hc=%s '%s') fp=%s",
+                overall, hc_cap, hc_score, hc_label, fingerprint,
+            )
+            overall = hc_cap
         aura_level = model.get_aura_label(overall)
         logger.debug(
             "[AURA-SCORING] Overall: %s (%s) for fp=%s", overall, aura_level, fingerprint,
         )
-
-        # 7. Human-contribution meta-label (unweighted dimension).
-        hc_score = dimension_scores.get("human_contribution", {}).get("score", 0.0)
-        hc_label = model.get_human_contribution_label(hc_score)
 
         # 8. Cards — telemetry/score cards from the signal extractor + the
         #    LLM's qualitative cards (go_to_phrase / signature / growth_edge).

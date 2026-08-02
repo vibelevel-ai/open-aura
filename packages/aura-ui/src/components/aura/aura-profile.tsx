@@ -764,8 +764,8 @@ export function AuraProfile({
         {isLocalOwnerProfile && (
           <div className="relative mx-6 mb-6 flex flex-col gap-4 rounded-2xl border border-[rgba(255,255,255,.1)] bg-[rgba(255,255,255,.035)] p-4 md:mx-8 md:flex-row md:items-center">
             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2.5">
-              <span className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[.14em] text-[var(--vibecoder-text-secondary)]">
-                <span className="h-2 w-2 rounded-sm bg-[var(--vibecoder-accent)]" />
+              <span className="inline-flex items-center gap-2 font-mono text-sm font-semibold uppercase tracking-[.14em] text-[var(--vibecoder-text-secondary)]">
+                <span className="h-2.5 w-2.5 rounded-sm bg-[var(--vibecoder-accent)]" />
                 For hiring
               </span>
               {availability && (
@@ -785,7 +785,7 @@ export function AuraProfile({
               rel="noopener noreferrer"
               className="inline-flex w-full items-center justify-center whitespace-normal rounded-xl bg-[var(--vibecoder-accent)] px-4 py-2.5 text-center text-sm font-semibold leading-snug text-[#07110b] transition-colors hover:bg-[#12f287] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vibecoder-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d121e] md:w-auto md:max-w-sm"
             >
-              Sign up on VibeLevel.ai for hiring opportunities with companies
+              Sign up on VibeLevel.ai to score your sessions, share your profile, and get surfaced to hiring teams
             </a>
           </div>
         )}

@@ -51,7 +51,7 @@ from src.services.aura.pfg_client import pfg_status
 
 # Backend version (keep in sync with package.json) + a build label so you can tell
 # WHICH build is running. Override the label per build/branch via AURA_BUILD.
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 _BUILD = os.getenv("AURA_BUILD", "pfg-insights-poc")
 
 def _configure_logging() -> None:
@@ -174,7 +174,7 @@ def create_app() -> FastAPI:
             "Standalone MCP connector for Open Aura. Agents score real local "
             "AI work sessions — single local user, no login."
         ),
-        version="0.1.0",
+        version=__version__,
         lifespan=_lifespan,
     )
 

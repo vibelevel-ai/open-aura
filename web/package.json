@@ -1,7 +1,7 @@
 {
   "name": "open-aura-web",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Open Aura — local Next.js viewer host. Renders @vibelevel/aura-ui against the local FastAPI (/api/aura/*).",
   "scripts": {
     "dev": "next dev -p 3000",

@@ -6,8 +6,19 @@ export type AuraActivityWindowDays = (typeof ACTIVITY_WINDOW_OPTIONS)[number];
 const DAY_MS = 86_400_000;
 
 export interface AuraActivitySession {
+  // Prefer when the work actually happened (ended_at, then started_at); fall back
+  // to created_at (the score date) for older rows that lack work timestamps.
+  ended_at?: string | null;
+  started_at?: string | null;
   created_at?: string | null;
   source?: string | null;
+}
+
+/** The date a session is placed on: work end > work start > score date. */
+export function activitySessionDate(
+  session: AuraActivitySession,
+): string | null | undefined {
+  return session.ended_at || session.started_at || session.created_at;
 }
 
 export interface AuraActivityDay {
@@ -80,8 +91,9 @@ export function buildAuraActivity(
   const sourceCounts = new Map<string, number>();
 
   for (const session of sessions) {
-    if (!session.created_at) continue;
-    const parsed = new Date(session.created_at);
+    const when = activitySessionDate(session);
+    if (!when) continue;
+    const parsed = new Date(when);
     if (!Number.isFinite(parsed.getTime())) continue;
     if (parsed.getTime() > safeNow.getTime()) continue;
     const dayMs = utcDayMs(parsed);

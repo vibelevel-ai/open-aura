@@ -196,6 +196,11 @@ def _session_summary(row: dict[str, Any]) -> SessionSummary:
         aura_score=_to_float(row.get("aura_score")) or 0.0,
         aura_level=row.get("aura_level") or "",
         archetype=row.get("archetype") or "",
+        # Dates: started_at/ended_at = when the work actually happened (from the
+        # evidence); created_at = when it was scored. The Activity chart prefers
+        # the work dates and falls back to the score date.
+        started_at=row["started_at"].isoformat() if row.get("started_at") else "",
+        ended_at=row["ended_at"].isoformat() if row.get("ended_at") else "",
         created_at=row["created_at"].isoformat() if row.get("created_at") else "",
         ships_it=_ships_it(row.get("cards")),
     )
@@ -501,7 +506,7 @@ async def build_profile(user_id: str) -> ProfileResponse:
             """
             SELECT id, source, modality, title, aura_score, aura_level,
                    dimension_scores, archetype, cards, evidence, telemetry,
-                   created_at
+                   started_at, ended_at, created_at
             FROM "AuraSession"
             WHERE user_id = %s AND status = 'scored'
             ORDER BY created_at DESC

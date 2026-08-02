@@ -1,7 +1,7 @@
 {
   "name": "open-aura-workspace",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "Apache-2.0",
   "description": "Open Aura — npm workspace: the shared @vibelevel/aura-ui package + the local Next.js viewer host.",
   "workspaces": [

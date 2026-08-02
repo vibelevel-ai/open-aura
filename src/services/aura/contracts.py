@@ -285,7 +285,9 @@ class SessionSummary(TypedDict, total=False):
     aura_score: float
     aura_level: str
     archetype: str
-    created_at: str
+    started_at: str  # when the work actually started (from evidence); may be ""
+    ended_at: str    # when the work actually ended (from evidence); may be ""
+    created_at: str  # when the session was SCORED (row ingested)
     ships_it: bool   # lifecycle card marks the work shipped/delivered end-to-end
 
 
