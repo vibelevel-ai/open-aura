@@ -41,15 +41,16 @@ class Config:
         env_file = env_file_map.get(self.environment, ".env")
         env_path = project_root / env_file
 
+        override = self.environment in ("local", "preview")
         if env_path.exists():
             print(f"[Config] Loading environment from: {env_file}")
-            load_dotenv(env_path, override=False)  # Don't override existing env vars
+            load_dotenv(env_path, override=override)
         else:
             # Fallback to .env if specific file doesn't exist
             default_env_path = project_root / ".env"
             if default_env_path.exists():
                 print(f"[Config] {env_file} not found, loading default .env")
-                load_dotenv(default_env_path, override=False)
+                load_dotenv(default_env_path, override=override)
             else:
                 print(f"[Config] No environment file found, using system environment variables only")
 
