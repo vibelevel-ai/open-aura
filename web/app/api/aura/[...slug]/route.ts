@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Runtime proxy for the shared components' relative /api/aura/* fetches → the
+// Runtime proxy for the viewer components' relative /api/aura/* fetches → the
 // FastAPI backend. Done as a route handler (not a next.config rewrite) so the
 // backend URL is read PER REQUEST at runtime — a build-time rewrite bakes in
-// localhost and fails inside the container. Mirrors how the SaaS proxies
-// /api/aura/* (minus the auth header — local mode needs none).
+// localhost and fails inside the container. (No auth header — local mode needs
+// none.)
 export const dynamic = 'force-dynamic';
 
 function backend(): string {

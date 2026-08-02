@@ -1,4 +1,4 @@
-// VibeLevel Aura — shared shell for the PUBLIC, shareable Aura surfaces:
+// VibeLevel Aura — the shell for the public, shareable Aura surfaces:
 //   · /u/{handle}  — full public profile
 //   · /s/{id}      — single shared session
 // Both render the same slim branded funnel header + a fixed-height viewport
@@ -12,7 +12,7 @@ import { type AuraViewerConfig, resolveViewerConfig } from '../../lib/aura/viewe
 
 // Slim branded header — the viral funnel bar. Left: logo + wordmark + AURA tag.
 // Center (lg+): a one-line descriptor of what Aura is. Right: the sign-in CTA.
-function PublicAuraHeader({ config }: { config?: AuraViewerConfig }) {
+export function PublicAuraHeader({ config }: { config?: AuraViewerConfig }) {
   const cfg = resolveViewerConfig(config);
   return (
     <header className="relative shrink-0 border-b border-[rgba(255,255,255,0.07)] bg-[#0d1320]">

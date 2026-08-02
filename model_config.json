@@ -394,6 +394,46 @@
         "icon": "deepinfra",
         "popular": false
       }
+    },
+    "deepseek-v4-flash-free": {
+      "display_name": "DeepSeek V4 Flash Free",
+      "description": "Free tier DeepSeek model via OpenCode Console",
+      "category": "openai",
+      "provider": "openai",
+      "enabled": true,
+      "settings": {
+        "temperature": 0.3,
+        "max_tokens": 16000,
+        "supports_streaming": true,
+        "supports_function_calling": true,
+        "max_context_length": 128000,
+        "model_type": "deepseek"
+      },
+      "ui": {
+        "color": "#8B5CF6",
+        "icon": "openai",
+        "popular": true
+      }
+    },
+    "deepseek-v4-flash": {
+      "display_name": "DeepSeek V4 Flash",
+      "description": "DeepSeek model via OpenCode Console",
+      "category": "openai",
+      "provider": "openai",
+      "enabled": true,
+      "settings": {
+        "temperature": 0.3,
+        "max_tokens": 32000,
+        "supports_streaming": true,
+        "supports_function_calling": true,
+        "max_context_length": 128000,
+        "model_type": "deepseek"
+      },
+      "ui": {
+        "color": "#8B5CF6",
+        "icon": "openai",
+        "popular": false
+      }
     }
   },
   "categories": {

@@ -3,15 +3,11 @@
 /**
  * VibeLevel Aura — Aura Score leaderboard view.
  *
- * Ranks builders by their *Aura Score* (the referenceless, unverified score from
- * local AI sessions). This is a SEPARATE ranking basis from the assessment
- * leaderboard — per spec decision #16, verified (assessment) and unverified
- * (Aura) scores are never blended. The header makes that distinction explicit.
+ * Ranks builders by their *Aura Score* (the referenceless score from real AI
+ * sessions). In Open Aura this is a read-only pull of the public hosted board.
  *
  * Data: GET /api/aura/leaderboard → AuraLeaderboardEntry[]. Each handle links to
  * the public profile at /u/[handle]. Aura Score is colored by AURA_LEVEL_COLORS.
- *
- * Table layout mirrors components/campus/vibethon-leaderboard.tsx for parity.
  */
 
 import { useEffect, useState } from 'react';

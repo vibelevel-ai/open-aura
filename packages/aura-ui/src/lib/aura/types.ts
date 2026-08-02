@@ -1,6 +1,6 @@
 // VibeLevel Aura — frontend type contract.
-// Mirrors viberanker-fastapi-bknd/src/services/aura/contracts.py (the source of
-// truth). Keep in lockstep with that file. Independent of assessment scoring.
+// Mirrors the backend Aura contracts (src/services/aura/contracts.py, the source
+// of truth). Keep in lockstep with that file.
 
 export type Modality = "coding" | "noncoding";
 export type Source = "claude_code" | "cursor" | "codex" | "claude_desktop" | "web";
@@ -15,7 +15,7 @@ export interface Card {
   question: string; // "When are you most productive?"
   headline: string; // "Night owl"
   detail: string; // "70% of your work lands 10pm-2am."
-  growth_nudge?: string; // one-sentence prescriptive next step (spec §1.1)
+  growth_nudge?: string; // one-sentence prescriptive next step
   stat?: unknown; // raw value for badges/formatting
 }
 
@@ -47,6 +47,35 @@ export interface ScoreResult {
   human_contribution_label: string;
   model_version: string;
   profile_delta: Record<string, unknown>;
+  profile_facts?: Record<string, ProfileFact>;
+}
+
+export interface ProfileFact {
+  value: string;
+  confidence: number;
+  source: "measured" | "inferred" | string;
+  observations?: number;
+}
+
+export interface ToolkitEntry {
+  name: string;
+  count: number;
+}
+
+export interface AuraToolkit {
+  sources?: Record<string, number>;
+  models?: Record<string, number>;
+  tools?: ToolkitEntry[];
+  skills?: ToolkitEntry[];
+  mcp_servers?: ToolkitEntry[];
+}
+
+export interface AuraProject {
+  name: string;
+  summary?: string;
+  session_count: number;
+  aura_score: number;
+  github_url?: string;
 }
 
 export interface ProfileResponse {
@@ -72,7 +101,7 @@ export interface ProfileResponse {
     top_model?: string;
     total_tokens?: number;
   };
-  // Personal-relative benchmarks (spec §1.4).
+  // Personal-relative benchmarks.
   benchmarks?: {
     this_session_score?: number;
     thirty_day_avg?: number;
@@ -80,21 +109,17 @@ export interface ProfileResponse {
     month_percentile?: number;
     best_week?: { avg: number; label: string };
   };
-  // Last-N per-dimension score series for sparklines (spec §1.2).
+  // Last-N per-dimension score series for sparklines.
   dimension_trends?: Record<string, number[]>;
   // True when the user takes the majority of their sessions through to a
   // shipped/delivered outcome (drives the overall "Ships it" hero badge).
   ships_it?: boolean;
-}
-
-// Account / connect surfaces
-export interface AuraPAT {
-  id: string;
-  name: string;
-  prefix: string; // e.g. "aura_ab12cd"
-  created_at: string;
-  last_used_at?: string | null;
-  revoked_at?: string | null;
+  // Evidence-weighted facts inferred from redacted session evidence.
+  profile_facts?: Record<string, ProfileFact>;
+  // Measured local session metadata; absent when a source cannot report it.
+  toolkit?: AuraToolkit;
+  // Repository-grouped evidence. Names are sanitized basenames, never paths.
+  projects?: AuraProject[];
 }
 
 // Leaderboard Aura view row
@@ -135,3 +160,13 @@ export const AURA_LEVEL_COLORS: Record<string, string> = {
   Strong: "#00e676",
   Exceptional: "#7dd3fc",
 };
+
+// Account / connect surfaces
+export interface AuraPAT {
+  id: string;
+  name: string;
+  prefix: string; // e.g. "aura_ab12cd"
+  created_at: string;
+  last_used_at?: string | null;
+  revoked_at?: string | null;
+}

@@ -179,8 +179,8 @@ export function InsightCard({
               </p>
             )}
 
-            {/* Growth nudge — prescriptive next step (spec §1.1). Owner-only;
-                hidden on public/shared cards (showGrowthNudge=false). */}
+            {/* Growth nudge — prescriptive next step. Owner-only; hidden on
+                public/shared cards (showGrowthNudge=false). */}
             {card.growth_nudge && showGrowthNudge && (
               <div
                 className="mt-3 rounded-lg border px-2.5 py-2"
