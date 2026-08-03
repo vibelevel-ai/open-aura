@@ -11,7 +11,8 @@ Run it with uvicorn:
 
 What this wires:
   - builds the FastMCP streamable-HTTP sub-app (``mcp.streamable_http_app()``),
-  - binds the single local user per request (``LocalUserMiddleware``),
+  - applies ``PATAuthMiddleware`` to it (bearer-PAT on POST; GET open for
+    discovery),
   - starts ``mcp.session_manager`` in the FastAPI lifespan — mounting a
     Starlette sub-app onto FastAPI does NOT propagate the sub-app's lifespan,
     so the session manager must be started here or every ``/mcp/`` request 500s,
@@ -33,7 +34,7 @@ from dotenv import load_dotenv
 
 # Load .env.<APP_ENV> BEFORE importing src.* (config reads env at import time).
 # Production injects env vars directly; this loads them for local dev so
-# `python aura_mcp_app.py` sees POSTGRES_URL.
+# `python aura_mcp_app.py` sees POSTGRES_URL / AURA_PAT_HASH_SECRET.
 _env = os.getenv("APP_ENV", "local")
 _env_file = {"local": ".env.local", "preview": ".env.preview",
              "production": ".env.prod", "prod": ".env.prod"}.get(_env, ".env")
@@ -41,11 +42,17 @@ _env_path = Path(__file__).parent / _env_file
 if _env_path.exists():
     load_dotenv(_env_path, override=False)
 
-from src.aura_mcp.local_auth import LocalUserMiddleware
+from src.aura_mcp.pat_auth import PATAuthMiddleware
 from src.aura_mcp.server import mcp as mcp_server
 from src.core.config import config
 from src.core.database_sync import close_pool, get_pool, test_database_connection
 from src.core.model_config import init_model_config
+from src.services.aura.pfg_client import pfg_status
+
+# Backend version (keep in sync with package.json) + a build label so you can tell
+# WHICH build is running. Override the label per build/branch via AURA_BUILD.
+__version__ = "0.2.0"
+_BUILD = os.getenv("AURA_BUILD", "pfg-insights-poc")
 
 def _configure_logging() -> None:
     """Central log-verbosity control for the sidecar.
@@ -100,6 +107,17 @@ _MOUNT_PATH = f"/{MCP_MOUNT}"
 
 
 def create_app() -> FastAPI:
+    # Fail fast if the PAT hashing secret is missing in production. Otherwise
+    # pat_auth._hash_secret() silently falls back to the DB URL, and EVERY token
+    # breaks if that URL ever rotates. Local/preview keep the dev fallback.
+    if config.environment in ("production", "prod") and not os.environ.get(
+        "AURA_PAT_HASH_SECRET"
+    ):
+        raise RuntimeError(
+            "AURA_PAT_HASH_SECRET must be set in production (refusing to fall "
+            "back to the database URL for PAT hashing)."
+        )
+
     # Initialize the model-config registry (provider routing for the SHARED LLM
     # client). Without this the registry is empty and EVERY model falls back to
     # the OpenAI provider — which is why a Groq-namespaced scoring model like
@@ -114,11 +132,30 @@ def create_app() -> FastAPI:
     # Build the MCP sub-app FIRST — ``streamable_http_app()`` lazily creates
     # ``mcp_server.session_manager``, which the lifespan below must start.
     mcp_app = mcp_server.streamable_http_app()
-    mcp_app.add_middleware(LocalUserMiddleware)
+    mcp_app.add_middleware(PATAuthMiddleware)
 
     @asynccontextmanager
     async def _lifespan(app: FastAPI):
         logger.info("[AuraMCP] starting (env=%s, mount=%s)", config.environment, _MOUNT_PATH)
+        logger.info("[Open Aura] backend v%s · build=%s", __version__, _BUILD)
+        # PFG operational insights — surface ON/OFF + reachability so the user
+        # knows at a glance whether grounding is wired. Best-effort; never blocks.
+        try:
+            ps = pfg_status(probe=True)
+            if not ps["enabled"]:
+                logger.info("[Open Aura] PFG insights: OFF "
+                            "(set PFG_GROUNDING_ENABLED=true to enable)")
+            elif not ps["configured"]:
+                logger.warning("[Open Aura] PFG insights: ON but NOT configured "
+                               "— PFG_MCP_URL is empty")
+            else:
+                reach = ("reachable ✓" if ps["reachable"]
+                         else "UNREACHABLE ✗ (check PFG_MCP_URL/PFG_MCP_TOKEN)")
+                logger.info("[Open Aura] PFG insights: ON · %s · ws=%s · %s · "
+                            "extract-LLM=%s", ps["host"], ps["workspace"], reach,
+                            "on" if ps["extract_llm"] else "off")
+        except Exception as exc:
+            logger.debug("[Open Aura] PFG status line skipped: %s", exc)
         # Warm the shared psycopg2 pool and fail fast if the DB is unreachable.
         get_pool()
         if not test_database_connection():
@@ -137,7 +174,7 @@ def create_app() -> FastAPI:
             "Standalone MCP connector for Open Aura. Agents score real local "
             "AI work sessions — single local user, no login."
         ),
-        version="0.1.0",
+        version=__version__,
         lifespan=_lifespan,
     )
 
@@ -166,11 +203,14 @@ def create_app() -> FastAPI:
             "api": "/api/aura",
         }
 
-    # REST endpoints for the web viewer (profile / session / leaderboard) — the
-    # Next.js viewer consumes these.
+    # REST endpoints for the web viewer (profile / session / leaderboard). Same
+    # contract the hosted SaaS serves; the shared Aura UI consumes it.
     from src.api.aura_endpoints import router as aura_router
 
     app.include_router(aura_router, prefix="/api/aura")
+
+    # Header-config clients like Claude Code / Cursor send the PAT directly, and
+    # local mode needs no auth.
 
     # Mount the MCP HTTP transport. ``mcp_app`` was built above so the session
     # manager exists in time for ``_lifespan`` to start it.

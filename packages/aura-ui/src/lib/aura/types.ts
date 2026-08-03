@@ -33,7 +33,9 @@ export interface SessionSummary {
   aura_score: number;
   aura_level?: string; // Emerging | Capable | Strong | Exceptional
   archetype: string;
-  created_at: string;
+  started_at?: string; // when the work actually started (from evidence); may be ""
+  ended_at?: string; // when the work actually ended (from evidence); may be ""
+  created_at: string; // when the session was scored (row ingested)
   ships_it?: boolean; // lifecycle card marks the work shipped/delivered end-to-end
 }
 
@@ -47,6 +49,35 @@ export interface ScoreResult {
   human_contribution_label: string;
   model_version: string;
   profile_delta: Record<string, unknown>;
+  profile_facts?: Record<string, ProfileFact>;
+}
+
+export interface ProfileFact {
+  value: string;
+  confidence: number;
+  source: "measured" | "inferred" | string;
+  observations?: number;
+}
+
+export interface ToolkitEntry {
+  name: string;
+  count: number;
+}
+
+export interface AuraToolkit {
+  sources?: Record<string, number>;
+  models?: Record<string, number>;
+  tools?: ToolkitEntry[];
+  skills?: ToolkitEntry[];
+  mcp_servers?: ToolkitEntry[];
+}
+
+export interface AuraProject {
+  name: string;
+  summary?: string;
+  session_count: number;
+  aura_score: number;
+  github_url?: string;
 }
 
 export interface ProfileResponse {
@@ -85,6 +116,12 @@ export interface ProfileResponse {
   // True when the user takes the majority of their sessions through to a
   // shipped/delivered outcome (drives the overall "Ships it" hero badge).
   ships_it?: boolean;
+  // Evidence-weighted facts inferred from redacted session evidence.
+  profile_facts?: Record<string, ProfileFact>;
+  // Measured local session metadata; absent when a source cannot report it.
+  toolkit?: AuraToolkit;
+  // Repository-grouped evidence. Names are sanitized basenames, never paths.
+  projects?: AuraProject[];
 }
 
 // Leaderboard Aura view row
@@ -125,3 +162,13 @@ export const AURA_LEVEL_COLORS: Record<string, string> = {
   Strong: "#00e676",
   Exceptional: "#7dd3fc",
 };
+
+// Account / connect surfaces
+export interface AuraPAT {
+  id: string;
+  name: string;
+  prefix: string; // e.g. "aura_ab12cd"
+  created_at: string;
+  last_used_at?: string | null;
+  revoked_at?: string | null;
+}

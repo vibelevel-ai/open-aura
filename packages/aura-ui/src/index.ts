@@ -36,6 +36,7 @@ export type {
   SessionSummary,
   ScoreResult,
   ProfileResponse,
+  AuraPAT,
   AuraLeaderboardEntry,
 } from './lib/aura/types';
 export { AURA_LEVEL_COLORS } from './lib/aura/types';

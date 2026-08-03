@@ -33,6 +33,7 @@ from .contracts import (
     SessionSummary,
     WhoAmIResponse,
 )
+from .aura_profile_facts import aggregate_profile_facts
 
 
 # ─── shared-session label (PUBLIC surfaces only) ─────────────────────────────
@@ -195,6 +196,11 @@ def _session_summary(row: dict[str, Any]) -> SessionSummary:
         aura_score=_to_float(row.get("aura_score")) or 0.0,
         aura_level=row.get("aura_level") or "",
         archetype=row.get("archetype") or "",
+        # Dates: started_at/ended_at = when the work actually happened (from the
+        # evidence); created_at = when it was scored. The Activity chart prefers
+        # the work dates and falls back to the score date.
+        started_at=row["started_at"].isoformat() if row.get("started_at") else "",
+        ended_at=row["ended_at"].isoformat() if row.get("ended_at") else "",
         created_at=row["created_at"].isoformat() if row.get("created_at") else "",
         ships_it=_ships_it(row.get("cards")),
     )
@@ -499,7 +505,8 @@ async def build_profile(user_id: str) -> ProfileResponse:
         cur.execute(
             """
             SELECT id, source, modality, title, aura_score, aura_level,
-                   dimension_scores, archetype, cards, evidence, created_at
+                   dimension_scores, archetype, cards, evidence, telemetry,
+                   started_at, ended_at, created_at
             FROM "AuraSession"
             WHERE user_id = %s AND status = 'scored'
             ORDER BY created_at DESC
@@ -535,6 +542,9 @@ async def build_profile(user_id: str) -> ProfileResponse:
                 benchmarks={},
                 dimension_trends={},
                 ships_it=False,
+                profile_facts={},
+                toolkit={},
+                projects=[],
             )
 
         # Overall aura_score = mean of per-session scores.
@@ -610,6 +620,19 @@ async def build_profile(user_id: str) -> ProfileResponse:
             logger.warning("[Aura] _compute_dimension_trends failed for %s: %s", user_id, e)
             dimension_trends = {}
 
+        try:
+            profile_sections = aggregate_profile_facts(rows)
+        except Exception as e:
+            logger.warning(
+                "[Aura] aggregate_profile_facts failed for %s: %s", user_id, e
+            )
+            profile_sections = {
+                "profile_facts": {},
+                "toolkit": {},
+                "projects": [],
+            }
+
+
         return ProfileResponse(
             handle=handle,
             display_name=display_name,
@@ -630,6 +653,9 @@ async def build_profile(user_id: str) -> ProfileResponse:
             benchmarks=benchmarks,
             dimension_trends=dimension_trends,
             ships_it=overall_ships_it,
+            profile_facts=profile_sections["profile_facts"],
+            toolkit=profile_sections["toolkit"],
+            projects=profile_sections["projects"],
         )
     finally:
         if conn and pool:

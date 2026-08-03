@@ -105,10 +105,10 @@ AURA_SCORING_MODEL_CODING: Dict[str, Any] = {
             "category": "human_effort",
             "classification": {
                 "levels": [
-                    {"label": "Passive Delegator", "range": [0, 3], "description": "High AI use, low human input."},
-                    {"label": "Balanced Builder", "range": [3.01, 5], "description": "Mix of AI and manual direction."},
-                    {"label": "Active Contributor", "range": [5.01, 7], "description": "Steers, validates, iterates."},
-                    {"label": "Vibe Coder", "range": [7.01, 10], "description": "High AI use AND high human initiative — AI as force multiplier."},
+                    {"label": "Passive Delegator", "range": [0, 5], "description": "High AI use, low human input."},
+                    {"label": "Balanced Builder", "range": [5.01, 7], "description": "Mix of AI and manual direction."},
+                    {"label": "Active Contributor", "range": [7.01, 9], "description": "Steers, validates, iterates."},
+                    {"label": "Vibe Coder", "range": [9.01, 10], "description": "High AI use AND high human initiative — AI as force multiplier."},
                 ]
             },
             "evidence_sources": ["chat_history", "work_files"],
@@ -254,3 +254,19 @@ def get_human_contribution_label(score: float) -> str:
         if lo <= score <= hi:
             return level["label"]
     return "Unknown"
+
+
+def get_hc_score_cap(hc_score: float) -> float:
+    """Overall-score ceiling implied by the human-contribution band the score
+    falls into: the overall Aura can't exceed the ceiling of your HC band. The
+    top band (Vibe Coder) is uncapped. Simple anti-gaming coupling — a great
+    prompt with little real human contribution can't buy a high overall score.
+    Derived from the HC classification bands so it stays in sync with them."""
+    levels = (AURA_SCORING_MODEL_CODING["dimensions"]
+              .get("human_contribution", {})
+              .get("classification", {}).get("levels", []))
+    for i, level in enumerate(levels):
+        lo, hi = level["range"]
+        if lo <= hc_score <= hi:
+            return 10.0 if i == len(levels) - 1 else float(hi)
+    return 10.0

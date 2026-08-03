@@ -1035,14 +1035,17 @@ def build_overall_cards(sessions: List[Dict[str, Any]], modality: str) -> List[C
 
 # Human Contribution band thresholds (0-10). HC is the spine of the archetype
 # framework (decision: Human Contribution spectrum, NOT Paxel work-habits):
-#   < 3   → low HC, leans on the AI                       → Delegator
-#   >= 7  → top HC, balanced excellence                   → Vibe Coder / Craftsperson
-#   3-7   → mid HC, classified by the dominant scored dim → Collaborator / etc.
-_HC_LOW = 3.0
-_HC_HIGH = 7.0
+#   < 5   → low HC, leans on the AI                       → Delegator
+#   >= 9  → top HC, balanced excellence                   → Vibe Coder / Craftsperson
+#   5-9   → mid HC, classified by the dominant scored dim → Collaborator / etc.
+# Aligned with the recalibrated HC label bands (Passive Delegator 0-5,
+# Balanced 5-7, Active 7-9, Vibe Coder 9-10) so archetype and label agree, and
+# the top archetype is genuinely hard to reach.
+_HC_LOW = 5.0
+_HC_HIGH = 9.0
 _HC_DEFAULT = 5.0  # used when human_contribution is missing from the scores
 # Mid-band Craftsperson floor: design & product both strong AND HC at least this.
-_CRAFT_HC_FLOOR = 5.0
+_CRAFT_HC_FLOOR = 6.0
 
 # Dominant-dimension → archetype-id map (used for the mid HC band, and as the
 # Vibe-tier Craftsperson check). Keyed by modality so coding/writing share logic.

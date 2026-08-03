@@ -44,6 +44,21 @@ CREATE TABLE IF NOT EXISTS "AuraSession" (
 );
 CREATE INDEX IF NOT EXISTS aura_session_user_idx ON "AuraSession" (user_id, status);
 
+-- PAT table — only used when AURA_LOCAL_MODE is OFF (hosted/multi-user). Created
+-- here so the same code runs in both modes; unused in the default local setup.
+CREATE TABLE IF NOT EXISTS "AuraPersonalAccessToken" (
+    id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    user_id      TEXT NOT NULL REFERENCES "User"(id),
+    name         TEXT,
+    token_hash   TEXT NOT NULL,
+    prefix       VARCHAR(16),
+    revoked_at   TIMESTAMPTZ,
+    expires_at   TIMESTAMPTZ,
+    last_used_at TIMESTAMPTZ,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS aura_pat_hash_idx ON "AuraPersonalAccessToken" (token_hash);
+
 -- The single local user (matches AURA_LOCAL_USER_ID default 'local').
 INSERT INTO "User" (id, display_name, aura_visibility)
 VALUES ('local', 'Local Builder', 'private')

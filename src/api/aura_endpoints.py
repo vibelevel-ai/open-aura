@@ -1,8 +1,16 @@
-"""Open Aura — REST endpoints for the web viewer (profile · session · leaderboard).
+"""VibeLevel Aura — REST endpoints for the web viewer.
 
-Mounted at ``/api/aura``; the Next.js viewer consumes them. Open Aura is
-local single-user, so there's no auth — every request is the single local user.
-Reuses only the vendored Aura services (``build_profile`` etc.).
+The same read contract the hosted SaaS serves (profile · session · leaderboard),
+ported for the OSS edition so the shared Next.js Aura UI can run locally. Mounted
+at ``/api/aura``.
+
+Auth: in local mode (``AURA_LOCAL_MODE=true``) there is no auth — the caller is
+always the single local user, so ``x-user-id`` is ignored. With local mode off
+(hosted/multi-user) the caller's id is taken from the ``x-user-id`` header, the
+same convention the SaaS proxy uses.
+
+Reuses only the vendored Aura services (``build_profile`` etc.) — no scoring
+engine, no PAT/identity management (those stay in the hosted edition).
 """
 from __future__ import annotations
 
@@ -11,10 +19,10 @@ import logging
 import os
 import urllib.request
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Header, HTTPException, Query
 from psycopg2.extras import RealDictCursor
 
-from ..aura_mcp.local_auth import LOCAL_USER_ID
+from ..aura_mcp.pat_auth import LOCAL_MODE, LOCAL_USER_ID
 from ..core.database_sync import get_conn_with_retry
 from ..services.aura.aura_profile import aura_share_title, build_profile
 from ..services.aura.aura_signal_extractor import _archetype_tagline
@@ -22,12 +30,21 @@ from ..services.aura.aura_signal_extractor import _archetype_tagline
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["aura"])
 
-# The viewer's Leaderboard tab is a read-only pull of the PUBLIC hosted
-# leaderboard. Configurable; sends no data.
+# The OSS edition has no leaderboard of its own; the viewer's Leaderboard tab is
+# a read-only pull of the PUBLIC hosted leaderboard. Configurable; sends no data.
 _LEADERBOARD_UPSTREAM = os.environ.get(
     "AURA_LEADERBOARD_UPSTREAM",
     os.environ.get("AURA_PUBLIC_WEB_URL", "https://vibelevel.ai").rstrip("/") + "/api/aura/leaderboard",
 )
+
+
+def _resolve_user(x_user_id: str | None) -> str:
+    """Local mode → the single local user; otherwise the proxied x-user-id."""
+    if LOCAL_MODE:
+        return LOCAL_USER_ID
+    if not x_user_id:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    return x_user_id
 
 
 def _to_float(value):
@@ -62,10 +79,10 @@ def _session_payload(row: dict) -> dict:
 
 # ── profiles ──────────────────────────────────────────────────────────────────
 @router.get("/me/profile")
-async def get_my_profile():
-    """The local user's Aura profile."""
+async def get_my_profile(x_user_id: str | None = Header(default=None)):
+    """The caller's Aura profile (local user in local mode)."""
     try:
-        return await build_profile(LOCAL_USER_ID)
+        return await build_profile(_resolve_user(x_user_id))
     except ValueError as e:  # build_profile raises if the user row is missing
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -89,6 +106,12 @@ async def get_public_profile(handle: str):
     if (row.get("aura_visibility") or "private") != "public":
         raise HTTPException(status_code=403, detail="This Aura profile is private.")
     profile = await build_profile(str(row["id"]))
+    # Automatically inferred identity, workspace, toolkit, and project facts are
+    # local-owner evidence. They require an explicit hosted publication flow
+    # before becoming public and must never leak through this compatibility URL.
+    profile.pop("profile_facts", None)
+    profile.pop("toolkit", None)
+    profile.pop("projects", None)
     for s in profile.get("sessions", []):
         s["title"] = s.get("share_title") or s.get("title")
     return profile
@@ -96,9 +119,9 @@ async def get_public_profile(handle: str):
 
 # ── sessions ──────────────────────────────────────────────────────────────────
 @router.get("/session/{session_id}")
-async def get_session_detail(session_id: str):
-    """One Aura session's detail (its cards + dimensions), for the local user."""
-    user_id = LOCAL_USER_ID
+async def get_session_detail(session_id: str, x_user_id: str | None = Header(default=None)):
+    """One Aura session's detail, scoped to the caller (its cards + dimensions)."""
+    user_id = _resolve_user(x_user_id)
     pool = conn = None
     try:
         pool, conn = get_conn_with_retry()

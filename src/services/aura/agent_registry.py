@@ -32,7 +32,7 @@ from typing import Dict, List, Optional
 #   coding        : agent is used for real coding work (modality hint)
 #   model_hint    : the kind of model this agent runs — so `model` is sensible
 AGENT_CAPABILITIES: Dict[str, Dict[str, object]] = {
-    # ── First-class coding agents (richest telemetry) ──────────────────────────
+    # ── First-class coding agents (direct PAT, richest telemetry) ──────────────
     "claude_code": {
         "label": "Claude Code",
         "token_command": "/context",
